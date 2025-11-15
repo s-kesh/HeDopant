@@ -4,7 +4,7 @@
 
 class Dopant {
 public:
-    Dopant(std::string name);
+    Dopant(const std::string name, const std::string datadir);
     ~Dopant();
 
     // Getters

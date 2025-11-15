@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Eigen/Core"
 #include "dopant.hpp"
 #include <cstddef>
 #include <vector>
+#include <Eigen/Dense>
 
 // enum struct DistributionType {
 //     NONE,
@@ -12,30 +14,40 @@
 
 class Droplet {
 public:
-    Droplet(std::size_t number, std::string dopant_name, std::size_t max_k);
+    Droplet(
+        const std::size_t number,
+        const std::string dopant_name,
+        const std::size_t max_k,
+        const std::string output,
+        const std::string datadir
+    );
     ~Droplet();
 
-    std::vector<double> alpha;
 
     void evolove_rk(
         const std::size_t no_of_steps,
         const double initial_x,
         const double final_x,
         const double pressure,
-        std::vector<double>& y
+        const bool trajectory,
+        const std::size_t size,
+        double *y
     );
 
 private:
     int m_number;
-    // DistributionType m_type;
     Dopant m_dopX;
+    std::string m_output;
+    std::string m_datadir;
 
     std::vector<double> m_vcluster;
     std::vector<double> m_evap;
+    Eigen::VectorXd m_alpha;
+    Eigen::VectorXd m_diag;
 
     void _calculate_alpha(const double con1, const double con2, const std::size_t max_k);
-    static void _fun( const double pressure,
-        const std::vector<double>& alph,
-        const std::vector<double>& x,
-        std::vector<double>& y);
+    void _fun(
+        const double pressure,
+        Eigen::VectorXd& x
+    );
 };

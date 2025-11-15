@@ -4,7 +4,7 @@
 #include <format>
 #include <stdexcept>
 
-Dopant::Dopant(std::string name)
+Dopant::Dopant(const std::string name, const std::string datadir)
     : m_name(std::move(name)),
       m_temprature(0.0),
       m_mass(0.0),
@@ -13,7 +13,7 @@ Dopant::Dopant(std::string name)
       m_e_X_X(0.0)
 {
     // File name = "<name>.yaml"
-    std::string filename = std::format("./data/{}.yaml", m_name);
+    std::string filename = std::format("{}/{}.yaml", datadir, m_name);
 
     // Load YAML file
     YAML::Node config;

@@ -32,12 +32,15 @@ meson compile -C build
 1. Edit `config.yaml` to specify your simulation parameters:
 
 ```yaml
-number_of_atoms: 100
-max_dopant: 50
-doping_cell: 1.0 # m
-rk_steps: 100000
-dopant: "water"
-doping_pressure: 1.0E-5 # mbar
+name: "Helium Droplet"
+number_of_atoms: 19000
+dopant: "krypton"
+doping_cell: 0.018 # m
+dopant_pressure: 1E-4 #mbar
+max_dopant: 20000
+rk_steps: 500000
+datadir: "../data"
+output: "he_drop_krypton"
 ```
 
 2. Run the program
@@ -48,8 +51,8 @@ doping_pressure: 1.0E-5 # mbar
 - --config <file> : Specify an alternate configuration file
 - --help : Show usage information
 
-The program writes the droplet evolution as function of distance to trajectory.arrow (Arrow IPC stream), which can be analyzed in Python, Julia, or other languages supporting Arrow.
-Final dopant distribution is written to standard output.
+The program writes the droplet evolution as function of distance to {output}_trajectory.arrow (Arrow IPC stream), which can be analyzed in Python, Julia, or other languages supporting Arrow.
+A file showing the evaporated droplet size as function of number of dopant and final distribution would be written to output file.
 
 ## Python example
 

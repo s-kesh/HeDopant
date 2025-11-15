@@ -5,3 +5,6 @@ doping_cell: 0.01 # m
 dopant_pressure: 1E-5 #mbar
 max_dopant: 100
 rk_steps: 50000
+datadir: "./data"
+output: "he_drop_water"
+trajectory: true

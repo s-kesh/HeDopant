@@ -19,10 +19,9 @@ endif
 inc = include_directories('header')
 
 #  Dependencies
-gsl_dep = dependency('gsl')
 yaml_dep = dependency('yaml-cpp')
 arrow_dep = dependency('arrow')
-parquet_dep = dependency('parquet')
+eigen_dep = dependency('eigen3')
 
 #  Source files
 srcs = files('src/dopant.cpp', 'src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp')
@@ -32,6 +31,6 @@ executable(
   'HeDopant',
   srcs,
   include_directories: inc,
-  dependencies: [gsl_dep, yaml_dep, arrow_dep, parquet_dep],
+  dependencies: [yaml_dep, arrow_dep, eigen_dep],
   install: false,
 )
