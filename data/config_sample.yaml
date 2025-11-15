@@ -1,0 +1,7 @@
+name: "Helium Droplet"
+number_of_atoms: 20000
+dopant: "water"
+doping_cell: 0.01 # m
+dopant_pressure: 1E-5 #mbar
+max_dopant: 100
+rk_steps: 50000

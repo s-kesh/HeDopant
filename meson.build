@@ -1,0 +1,37 @@
+project(
+  'HeDopant',
+  'cpp',
+  version: '1.0',
+  default_options: [
+    'cpp_std=c++23',
+    'warning_level=3',
+  ],
+)
+
+#  Determine build-type flags
+bt = get_option('buildtype')
+if bt == 'debugoptimized'
+  add_project_arguments(['-pg'], language: 'cpp')
+  add_project_link_arguments(['-pg'], language: 'cpp')
+endif
+
+#  Include directory
+inc = include_directories('header')
+
+#  Dependencies
+gsl_dep = dependency('gsl')
+yaml_dep = dependency('yaml-cpp')
+arrow_dep = dependency('arrow')
+parquet_dep = dependency('parquet')
+
+#  Source files
+srcs = files('src/dopant.cpp', 'src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp')
+
+#  Build executable
+executable(
+  'HeDopant',
+  srcs,
+  include_directories: inc,
+  dependencies: [gsl_dep, yaml_dep, arrow_dep, parquet_dep],
+  install: false,
+)

@@ -1,0 +1,7 @@
+# Water dopant file
+name: "Water"
+mass: 18 # amu
+temprature: 300 # K
+velocity: 644 # m/s
+E_He_X: 32E-3 # eV
+E_X_X: 0.233 # eV
