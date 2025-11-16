@@ -2,6 +2,7 @@
 
 #include "Eigen/Core"
 #include "dopant.hpp"
+
 #include <cstddef>
 #include <vector>
 #include <Eigen/Dense>
@@ -18,7 +19,7 @@ public:
         const std::size_t number,
         const std::string dopant_name,
         const std::size_t max_k,
-        const std::string output,
+        const std::string prefix,
         const std::string datadir
     );
     ~Droplet();
@@ -30,18 +31,19 @@ public:
         const double final_x,
         const double pressure,
         const bool trajectory,
-        const std::size_t size,
-        double *y
+        const std::string filename,
+        std::vector<double>& y
     );
 
 private:
     int m_number;
     Dopant m_dopX;
-    std::string m_output;
+    std::string m_prefix;
     std::string m_datadir;
 
     std::vector<double> m_vcluster;
     std::vector<double> m_evap;
+
     Eigen::VectorXd m_alpha;
     Eigen::VectorXd m_diag;
 

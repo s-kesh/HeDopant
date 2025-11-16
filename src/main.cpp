@@ -62,6 +62,7 @@ int main(int argc, char* argv[]) {
     try {
         config = YAML::LoadFile(filename);
     } catch (const std::exception& e) {
+        print_help(argv[0]);
         throw std::runtime_error(
             "Error: Cannot load YAML file " + filename + ": " + e.what());
     }
@@ -137,7 +138,7 @@ int main(int argc, char* argv[]) {
 
     Droplet helium(he_number, dopant, max_k, output, datadir);
     std::vector<double> y_final(max_k + 1);
-    helium.evolove_rk(rk_steps, 0, L_cell, doping_pressure, trajectory, y_final.size(), y_final.data());
+    helium.evolove_rk(rk_steps, 0, L_cell, doping_pressure, trajectory, "trajectory", y_final);
 
     // Write output to file
     // Header k, y_final

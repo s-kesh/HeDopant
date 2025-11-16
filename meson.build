@@ -24,7 +24,7 @@ arrow_dep = dependency('arrow')
 eigen_dep = dependency('eigen3')
 
 #  Source files
-srcs = files('src/dopant.cpp', 'src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp')
+srcs = files('src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp')
 
 #  Build executable
 executable(
