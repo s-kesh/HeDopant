@@ -10,6 +10,9 @@
 #define ARROW_THROW_NOT_OK(expr) \
     do { auto _s = (expr); if (!_s.ok()) throw std::runtime_error(_s.ToString()); } while (0)
 
+/*
+ * ArrowIO class for writing trajectory data to an Arrow file
+ */
 class ArrowIO {
 public:
     ArrowIO(const std::string& path)

@@ -6,8 +6,26 @@
 
 #include "constants.hpp"
 
+/*
+ * Dopant class
+ * Represents the properties of dopant in He droplet
+ * Fields:
+ *   name: Name of the dopant
+ *   temprature: Temprature of the dopant
+ *   mass: Mass of the dopant
+ *   velocity: Velocity of the dopant
+ *   e_He_X: Energy of He-dopant interaction
+ *   e_X_X: Energy of dopant-dopant interaction
+ */
 class Dopant {
 public:
+    /*
+    * Initialize dopant properties from YAML file
+    * Input:
+    *   name: Name of the dopant
+    *   datadir: Directory containing the YAML file
+    * It reads name.yaml file from the datadir and initializes the dopant properties
+    */
     Dopant(const std::string name, const std::string datadir)
         : m_name(name), m_temprature(0), m_mass(0), m_velocity(0), m_e_He_X(0), m_e_X_X(0) {
         // File name = "<name>.yaml"

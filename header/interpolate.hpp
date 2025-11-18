@@ -3,6 +3,9 @@
 #include <vector>
 #include <stdexcept>
 
+/*
+ * LinearInterpolator class for linear interpolation
+ */
 class LinearInterpolator {
 public:
     LinearInterpolator() = default;
@@ -44,6 +47,9 @@ private:
 };
 
 
+/*
+ * Interpolators class for interpolation of data
+ */
 class Interpolators {
 public:
     Interpolators(const std::vector<double>& N_list,

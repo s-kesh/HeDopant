@@ -61,7 +61,7 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
     std::size_t N_k = m_number;
     std::size_t N_old = m_number;
 
-    std::vector<std::size_t> N_k_vec(max_k + 1);
+    N_k_vec.resize(max_k + 1);
     N_k_vec[0] = N_k;
 
     m_alpha[0] = con1 * std::sqrt((v_cluster*v_cluster + v_x*v_x) / (v_cluster * v_cluster)) * std::pow(N_k, 2.0/3.0);
@@ -119,8 +119,6 @@ void Droplet::evolove_rk(
 
     const std::size_t maxx = y_og.size();
     Eigen::Map<Eigen::VectorXd> y(y_og.data(), y_og.size());
-    y.fill(0.0); // set everything to 0
-    y[0] = 1; // set intensity for droplet with '0' dopant to 1
 
     const double stepsize = (final_x - initial_x) / no_of_steps;
 

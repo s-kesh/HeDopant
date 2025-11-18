@@ -1,5 +1,9 @@
 #pragma once
 
+/*
+ * Constants used in the simulation
+ */
+
 namespace constants {
     constexpr double pi = 3.14159265358979323846; // Pi
     constexpr double kB = 1.38064852e-23; // Boltzmann constant in J/K
