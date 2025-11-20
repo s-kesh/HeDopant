@@ -14,6 +14,7 @@
  *   temprature: Temprature of the dopant
  *   mass: Mass of the dopant
  *   velocity: Velocity of the dopant
+ *   e_Int: Internal energy
  *   e_He_X: Energy of He-dopant interaction
  *   e_X_X: Energy of dopant-dopant interaction
  */
@@ -45,6 +46,7 @@ public:
             m_temprature = config["temprature"].as<double>();
             m_mass       = config["mass"].as<double>();
             m_velocity   = config["velocity"].as<double>();
+            m_e_Int      = config["E_Int"].as<double>()*constants::e;
             m_e_He_X     = config["E_He_X"].as<double>()*constants::e;
             m_e_X_X      = config["E_X_X"].as<double>()*constants::e;
         } catch (const std::exception& e) {
@@ -60,6 +62,7 @@ public:
     double temprature() const noexcept { return m_temprature; }
     double mass() const noexcept { return m_mass; }
     double velocity() const noexcept { return m_velocity; }
+    double e_Int() const noexcept { return m_e_Int;}
     double e_He_X() const noexcept { return m_e_He_X; }
     double e_X_X() const noexcept { return m_e_X_X; }
 
@@ -68,6 +71,7 @@ private:
     double m_temprature;
     double m_mass;
     double m_velocity;
+    double m_e_Int;
     double m_e_He_X;
     double m_e_X_X;
 };

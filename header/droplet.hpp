@@ -7,11 +7,17 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-// enum struct DistributionType {
-//     NONE,
-//     LOGNORMAL,
-//     EXPONENTIAL,
-// };
+enum struct DistributionType {
+    NONE,
+    LOGNORMAL
+//    EXPONENTIAL,
+};
+
+inline static DistributionType convert_type(std::string type) {
+    if (type == "NONE") return DistributionType::NONE;
+
+    return DistributionType::LOGNORMAL;
+}
 
 /*
  * Droplet class
@@ -28,14 +34,16 @@ class Droplet {
 public:
     /*
      * Initialize droplet with given parameters
-     * number: size of the droplet
+     * mean_number: mean size of the droplet
+     * distribution_type: type of distribution for droplet
      * dopant_name: name of the dopant
      * max_k: maximum no of dopants (just set something high)
      * prefix: prefix for output files
      * datadir: directory for output files
      */
     Droplet(
-        const std::size_t number,
+        const std::vector<std::size_t> mean_numbers,
+        DistributionType distribution_type,
         const std::string dopant_name,
         const std::size_t max_k,
         const std::string prefix,
@@ -47,7 +55,6 @@ public:
     /*
      * Evolve droplet over doping cell using Runge-Kutta method
      * no_of_steps: number of steps to evolve, make it large to keep step_size small
-     * initial_x: initial position, normally 0
      * final_x: final position, normally doping cell length
      * pressure: pressure
      * trajectory: whether to save trajectory, keep true if you want to save I_k at each RK4 step
@@ -56,12 +63,11 @@ public:
      */
     void evolove_rk(
         const std::size_t no_of_steps,
-        const double initial_x,
         const double final_x,
         const double pressure,
         const bool trajectory,
         const std::string filename,
-        std::vector<double>& I_k
+        Eigen::MatrixXd& I_k
     );
 
     /*
@@ -70,7 +76,9 @@ public:
     std::vector<std::size_t> N_k_vec;
 
 private:
-    int m_number; // number of atoms in droplet
+    std::size_t max_mean_number;
+    std::vector<std::size_t> m_numbers; // mean numbers of atoms in droplet
+    DistributionType m_type; // Distribution type for droplet
     Dopant m_dopX; // Dopant
     std::string m_prefix; // prefix for output files
     std::string m_datadir; // directory for output files
@@ -78,12 +86,15 @@ private:
     std::vector<double> m_vcluster; // velocity of droplet for certain droplet size
     std::vector<double> m_evap; // Binding energy of droplet for certain droplet size
 
-    Eigen::VectorXd m_alpha;
-    Eigen::VectorXd m_diag;
+    Eigen::VectorXd m_sizes;
+    Eigen::MatrixXd m_sizes_dist;
+    Eigen::MatrixXd m_N_k_vec;
+    Eigen::MatrixXd m_alpha;
+    Eigen::MatrixXd m_diag;
 
     void _calculate_alpha(const double con1, const double con2, const std::size_t max_k);
     void _fun(
         const double pressure,
-        Eigen::VectorXd& x
+        Eigen::MatrixXd& x
     );
 };

@@ -1,3 +1,4 @@
+#include "Eigen/Core"
 #include "droplet.hpp"
 #include <cstddef>
 #include <exception>
@@ -12,6 +13,8 @@
 #include <yaml-cpp/node/parse.h>
 #include <yaml-cpp/yaml.h>
 
+#include <Eigen/Dense>
+
 /*
  * Print help message
  */
@@ -24,6 +27,7 @@ static void print_help(const char* prog) {
     std::println();
     std::println("Configuration Overrides (these override the YAML file):");
     std::println("  --number_of_atoms <N>  Number of helium atoms");
+    std::println("  --type <TYPE>          Distribution type: NONE or LOGNORMAL");
     std::println("  --max_dopant <K>       Max dopant cluster size to track");
     std::println("  --doping_cell <L>      Length of the doping cell (in meters)");
     std::println("  --rk_steps <S>         Number of Runge-Kutta steps");
@@ -39,7 +43,14 @@ static void print_help(const char* prog) {
  */
 static void print_config(const YAML::Node& config) {
     std::println("Configuration:");
-    std::println("  Number of atoms: {}", config["number_of_atoms"].as<int>());
+
+    // Check if number_of_atoms is a sequence
+    if (config["number_of_atoms"].IsSequence()) {
+        std::println("  Number of atoms: {}", config["number_of_atoms"].as<std::vector<std::size_t>>());
+    } else {
+        std::println("  Number of atoms: {}", config["number_of_atoms"].as<std::size_t>());
+    }
+    std::println("  Type: {}", config["type"].as<std::string>());
     std::println("  Max dopant: {}", config["max_dopant"].as<int>());
     std::println("  Doping cell: {}", config["doping_cell"].as<double>());
     std::println("  Runge-Kutta steps: {}", config["rk_steps"].as<int>());
@@ -134,6 +145,8 @@ int main(int argc, char* argv[]) {
 
             if (arg == "--number_of_atoms") {
                 config["number_of_atoms"] = get_value();
+            } else if (arg == "--type") {
+                config["type"] = get_value();
             } else if (arg == "--max_dopant") {
                 config["max_dopant"] = get_value();
             } else if (arg == "--doping_cell") {
@@ -165,7 +178,8 @@ int main(int argc, char* argv[]) {
 
 
     // Read all the variables from config file or overriden arguments
-    std::size_t he_number;
+    std::vector<std::size_t> he_numbers;
+    DistributionType type;
     std::size_t max_k;
     std::size_t rk_steps;
     double L_cell;
@@ -176,7 +190,11 @@ int main(int argc, char* argv[]) {
     bool trajectory;
 
     try {
-        he_number = config["number_of_atoms"].as<std::size_t>();
+        if (config["number_of_atoms"].IsSequence())
+            he_numbers = config["number_of_atoms"].as<std::vector<std::size_t>>();
+        else
+            he_numbers.push_back(config["number_of_atoms"].as<std::size_t>());
+        type = convert_type(config["type"].as<std::string>());
         max_k = config["max_dopant"].as<std::size_t>();
         L_cell = config["doping_cell"].as<double>();
         rk_steps = config["rk_steps"].as<std::size_t>();
@@ -196,56 +214,44 @@ int main(int argc, char* argv[]) {
             e.what());
     }
 
-    // Vectors to save mean_k and N_k
-    std::vector<std::size_t> mean_k, N_k;
-    mean_k.reserve(doping_pressure.size());
-    N_k.reserve(doping_pressure.size());
-
     // To keep state of intensities
-    std::vector<double> y_vec(max_k + 1);
+    // one vector for each mean_size
+    Eigen::MatrixXd y_matrix(he_numbers.size(), max_k+1);
+    y_matrix.fill(0.0);
 
     // Simulation
     // Define the Droplet object
-    Droplet helium(he_number, dopant, max_k, output, datadir);
+    Droplet helium(he_numbers, type,
+        dopant, max_k, output, datadir);
+
     // if pressure is a list, then iterate over it
     for (double pressure : doping_pressure) {
-        // For each pressure, initialize y_vec such that pure droplet has 100% probability
-        for (std::size_t i = 0; i < y_vec.size(); i++) {
-            y_vec[i] = 0.0;
-        }
-        y_vec[0] = 1.0;
-
         // Solve dI_k/dz = AI_k
         helium.evolove_rk(
             rk_steps, // Number of steps for Runge-Kutta method
-            0, // Initial position in doping cell
             L_cell, // Length of doping cell
             pressure*100, // Pressure in Pa
             trajectory, // Flag to save trajectory
             "trajectory", // Filename for trajectory data
-            y_vec // Initial condition for y; final condition would be saved in it
+            y_matrix // Initial condition for y; final condition would be saved in it
         );
-
-        // Calculate the mean
-        std::size_t mean = calculate_mean(y_vec);
-        mean_k.push_back(mean);
-        N_k.push_back(helium.N_k_vec[mean]);
 
         // Write output to file
         // Header k, y_final
         std::string name = std::format("{}_{}_mbar_output.txt", output, pressure);
         std::ofstream file(name);
-        file << "k\ty\n";
-        for (std::size_t k = 0; k < max_k; k++) {
-            file << std::format("{}\t{}\n", k, y_vec[k]);
+        file << "k\t";
+        for (std::size_t n = 0; n < he_numbers.size(); n++) {
+            file << n << "\t";
         }
-    }
-
-    // Write the p vs mean_k vs remaining atoms
-    std::ofstream pfile(std::format("{}_mean_k.txt", output));
-    pfile << "pressure\tmean_k\tN_k\n";
-    for (std::size_t p = 0; p < doping_pressure.size(); p++) {
-        pfile << std::format("{}\t{}\t{}\n", doping_pressure[p], mean_k[p], N_k[p]);
+        file << "\n";
+        for (std::size_t k = 0; k < max_k; k++) {
+            file << k << "\t";
+            for (std::size_t n = 0; n < he_numbers.size(); n++) {
+                file << y_matrix(n, k) << "\t";
+            }
+            file << "\n";
+        }
     }
 
 

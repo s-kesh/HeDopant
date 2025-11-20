@@ -22,6 +22,7 @@ inc = include_directories('header')
 yaml_dep = dependency('yaml-cpp')
 arrow_dep = dependency('arrow')
 eigen_dep = dependency('eigen3')
+omp_dep = dependency('openmp')
 
 #  Source files
 srcs = files('src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp')
@@ -31,6 +32,6 @@ executable(
   'HeDopant',
   srcs,
   include_directories: inc,
-  dependencies: [yaml_dep, arrow_dep, eigen_dep],
+  dependencies: [yaml_dep, arrow_dep, eigen_dep, omp_dep],
   install: false,
 )

@@ -45,7 +45,7 @@ public:
         if (m_outfile) { ARROW_THROW_NOT_OK(m_outfile->Close()); m_outfile.reset(); }
     }
 
-    void write_step(std::size_t step_index, const std::vector<double>& vec) {
+    void write_step(std::size_t step_index, const std::size_t size, const double* vec) {
         arrow::Int64Builder step_builder(m_pool);
         arrow::ListBuilder list_builder(m_pool,
             std::make_shared<arrow::DoubleBuilder>(m_pool));
@@ -57,8 +57,8 @@ public:
 
         // y vector
         ARROW_THROW_NOT_OK(list_builder.Append()); // start list
-        for (double v : vec)
-            ARROW_THROW_NOT_OK(value_builder->Append(v));
+        for (std::size_t i = 0; i < size; ++i)
+            ARROW_THROW_NOT_OK(value_builder->Append(vec[i]));
 
         // finalize arrays
         std::shared_ptr<arrow::Array> step_array;
