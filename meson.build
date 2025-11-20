@@ -22,7 +22,7 @@ inc = include_directories('header')
 yaml_dep = dependency('yaml-cpp')
 arrow_dep = dependency('arrow')
 eigen_dep = dependency('eigen3')
-omp_dep = dependency('openmp')
+omp_dep = dependency('openmp', required: false)
 
 #  Source files
 srcs = files('src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp')
