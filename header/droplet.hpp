@@ -3,21 +3,12 @@
 #include "dopant.hpp"
 
 #include <cstddef>
+#include <string>
 #include <vector>
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-enum struct DistributionType {
-    NONE,
-    LOGNORMAL
-//    EXPONENTIAL,
-};
-
-inline static DistributionType convert_type(std::string type) {
-    if (type == "NONE") return DistributionType::NONE;
-
-    return DistributionType::LOGNORMAL;
-}
+#define DIST_STEP 100
 
 /*
  * Droplet class
@@ -43,7 +34,7 @@ public:
      */
     Droplet(
         const std::vector<std::size_t> mean_numbers,
-        DistributionType distribution_type,
+        const std::string distribution_type,
         const std::string dopant_name,
         const std::size_t max_k,
         const std::string prefix,
@@ -78,7 +69,7 @@ public:
 private:
     std::size_t max_mean_number;
     std::vector<std::size_t> m_numbers; // mean numbers of atoms in droplet
-    DistributionType m_type; // Distribution type for droplet
+    std::string m_type; // Distribution type for droplet
     Dopant m_dopX; // Dopant
     std::string m_prefix; // prefix for output files
     std::string m_datadir; // directory for output files

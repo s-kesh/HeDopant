@@ -2,15 +2,16 @@
 
 #include <cmath>
 #include "constants.hpp"
+#include "distribution.hpp"
 
 /*
  * LogNormal class for log-normal distribution
  */
-class LogNormal {
+class LogNormal: public Distribution {
 public:
     LogNormal(double mean) : m_mu(std::log(mean) - 0.5*m_sigma*m_sigma) {}
 
-    double pdf(double x) const {
+    double pdf(double x) const override {
         if (x <= 0) return 0;
         double z = (std::log(x) - m_mu) / m_sigma;
         return std::exp(-0.5 * z * z) / (x * m_sigma * sqrt(2 * constants::pi));
@@ -22,7 +23,7 @@ public:
     }
 
     // ΔN = exp(μ + 0.5σ²)
-    inline double mean() const {
+    double mean() const override{
         return std::exp(m_mu + 0.5*m_sigma*m_sigma);
     }
 

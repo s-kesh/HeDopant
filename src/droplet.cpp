@@ -1,10 +1,12 @@
 #include "droplet.hpp"
-#include "Eigen/Core"
 #include "constants.hpp"
 #include "interpolate.hpp"
 #include "dopant.hpp"
 #include "arrow_io.hpp"
+
+#include "distribution.hpp"
 #include "log_normal.hpp"
+#include "exponential.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -13,6 +15,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <memory>
 
 void print_progress_bar(float progress) {
     int barWidth = 70;
@@ -27,9 +30,23 @@ void print_progress_bar(float progress) {
     std::cout.flush();
 }
 
+std::unique_ptr<Distribution> create_distribution(
+    const std::string& type, double mean
+) {
+    DistributionType dist_type = convert_type(type);
+    switch (dist_type) {
+        case DistributionType::LOGNORMAL:
+            return std::make_unique<LogNormal>(mean);
+        case DistributionType::EXPONENTIAL:
+            return std::make_unique<Exponential>(mean);
+        default:
+            throw std::invalid_argument("Invalid distribution type specified: " + type);
+    }
+}
+
 Droplet::Droplet(
     const std::vector<std::size_t> numbers,
-    DistributionType type,
+    const std::string type,
     const std::string dopant_name,
     const std::size_t max_k,
     const std::string prefix,
@@ -43,7 +60,7 @@ Droplet::Droplet(
 
     max_mean_number = *std::max_element(numbers.begin(), numbers.end());
 
-    if (m_type == DistributionType::NONE) {
+    if (m_type == "NONE") {
         m_vcluster.resize(max_mean_number+5);
         m_evap.resize(max_mean_number+5);
         m_sizes.resize(m_numbers.size());
@@ -62,17 +79,18 @@ Droplet::Droplet(
         m_vcluster.resize(12*max_mean_number);
         m_evap.resize(12*max_mean_number);
 
-        m_sizes.resize(max_mean_number);
+        // Creating an array from 0 to 10*max_mean_number with step of DIST_STEP
+        int size = (10*max_mean_number - 0) / DIST_STEP;
+        m_sizes.resize(size);
         for (int i = 0; i < m_sizes.size(); i++) {
-            m_sizes[i] = 10*i;
+            m_sizes[i] = 0 + DIST_STEP*i;
         }
 
         m_sizes_dist.resize(m_sizes.size(), numbers.size());
-        // create a lognormal distribution
         for (std::size_t n = 0; n < numbers.size(); n++) {
-            LogNormal log_normal(numbers[n]);
-            for (std::size_t i = 0; i < max_mean_number; i++) {
-                m_sizes_dist(i, n) = log_normal.pdf(10*i);
+            auto drop_dist = create_distribution(type, numbers[n]);
+            for (int i = 0; i < m_sizes.size(); i++) {
+                m_sizes_dist(i, n) = drop_dist->pdf(m_sizes[i]);
             }
         }
 
@@ -80,7 +98,7 @@ Droplet::Droplet(
         for (std::size_t n = 0; n < numbers.size(); n++) {
             std::ofstream file(std::format("{}_{}_size_distribution.txt", m_prefix, numbers[n]));
             file << "Index\tdroplet_size\tLognormal\n";
-            for (std::size_t i = 0; i < max_mean_number; i++) {
+            for (int i = 0; i < m_sizes.size(); i++) {
                 file << std::format("{}\t{}\t{}\n", i, m_sizes[i], m_sizes_dist(i, n));
             }
         }
@@ -261,7 +279,7 @@ void Droplet::evolove_rk(
     file.close();
 
     // Now for each mean number, we have a distribution
-    if (m_type == DistributionType::NONE) {
+    if (m_type == "NONE") {
         y_out.noalias() = y;
     }
     else {

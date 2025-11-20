@@ -1,5 +1,6 @@
 name: "Helium Droplet"
 number_of_atoms: 20000
+type: "LOGNORMAL" # options are: "NONE", "LOGNORMAL" or "EXPONENTIAL"
 dopant: "water"
 doping_cell: 0.01 # m
 dopant_pressure: 1E-5 #mbar

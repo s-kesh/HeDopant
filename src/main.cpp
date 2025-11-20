@@ -1,5 +1,5 @@
-#include "Eigen/Core"
 #include "droplet.hpp"
+
 #include <cstddef>
 #include <exception>
 #include <format>
@@ -9,11 +9,13 @@
 #include <string>
 #include <vector>
 #include <fstream>
+
 #include <yaml-cpp/node/node.h>
 #include <yaml-cpp/node/parse.h>
 #include <yaml-cpp/yaml.h>
 
 #include <Eigen/Dense>
+#include <Eigen/Core>
 
 /*
  * Print help message
@@ -179,7 +181,7 @@ int main(int argc, char* argv[]) {
 
     // Read all the variables from config file or overriden arguments
     std::vector<std::size_t> he_numbers;
-    DistributionType type;
+    std::string type;
     std::size_t max_k;
     std::size_t rk_steps;
     double L_cell;
@@ -194,7 +196,7 @@ int main(int argc, char* argv[]) {
             he_numbers = config["number_of_atoms"].as<std::vector<std::size_t>>();
         else
             he_numbers.push_back(config["number_of_atoms"].as<std::size_t>());
-        type = convert_type(config["type"].as<std::string>());
+        type = config["type"].as<std::string>();
         max_k = config["max_dopant"].as<std::size_t>();
         L_cell = config["doping_cell"].as<double>();
         rk_steps = config["rk_steps"].as<std::size_t>();
