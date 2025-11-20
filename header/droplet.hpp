@@ -1,12 +1,14 @@
 #pragma once
 
 #include "dopant.hpp"
+#include "rk4_backend.hpp"
 
 #include <cstddef>
 #include <string>
 #include <vector>
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <memory>
 
 #define DIST_STEP 100
 
@@ -53,6 +55,7 @@ public:
      * I_k: distribution of dopants to be evolved over doping cell
      */
     void evolove_rk(
+        std::shared_ptr<RK4Backend> rk4,
         const std::size_t no_of_steps,
         const double final_x,
         const double pressure,
@@ -81,11 +84,6 @@ private:
     Eigen::MatrixXd m_sizes_dist;
     Eigen::MatrixXd m_N_k_vec;
     Eigen::MatrixXd m_alpha;
-    Eigen::MatrixXd m_diag;
 
     void _calculate_alpha(const double con1, const double con2, const std::size_t max_k);
-    void _fun(
-        const double pressure,
-        Eigen::MatrixXd& x
-    );
 };

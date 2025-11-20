@@ -17,6 +17,27 @@
 #include <Eigen/Dense>
 #include <Eigen/Core>
 
+#include "rk4_backend.hpp"
+
+#ifdef RK4_HAS_GPU
+#include <cuda_runtime.h>
+#endif
+
+std::shared_ptr<RK4Backend> create_backend()
+{
+#ifdef RK4_HAS_GPU
+    int count = 0;
+    cudaError_t status = cudaGetDeviceCount(&count);
+    std::println("GPU backend should be selected, device count: {}", count);
+    if (status == cudaSuccess && count > 0) {
+        std::println("GPU backend selected");
+        return std::make_shared<RK4Backend_GPU>();
+    }
+#endif
+    std::println("CPU backend selected");
+    return std::make_shared<RK4Backend_CPU>();
+}
+
 /*
  * Print help message
  */
@@ -222,6 +243,8 @@ int main(int argc, char* argv[]) {
     y_matrix.fill(0.0);
 
     // Simulation
+    auto rk4_solver = create_backend();
+
     // Define the Droplet object
     Droplet helium(he_numbers, type,
         dopant, max_k, output, datadir);
@@ -230,6 +253,7 @@ int main(int argc, char* argv[]) {
     for (double pressure : doping_pressure) {
         // Solve dI_k/dz = AI_k
         helium.evolove_rk(
+            rk4_solver, // Solver backend
             rk_steps, // Number of steps for Runge-Kutta method
             L_cell, // Length of doping cell
             pressure*100, // Pressure in Pa

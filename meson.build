@@ -25,7 +25,12 @@ eigen_dep = dependency('eigen3')
 omp_dep = dependency('openmp', required: false)
 
 #  Source files
-srcs = files('src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp')
+srcs = files(
+  'src/droplet.cpp',
+  'src/interpolate.cpp',
+  'src/main.cpp',
+  'src/rk4_cpu.cpp',
+)
 
 #  Build executable
 executable(

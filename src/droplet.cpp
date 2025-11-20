@@ -2,33 +2,21 @@
 #include "constants.hpp"
 #include "interpolate.hpp"
 #include "dopant.hpp"
-#include "arrow_io.hpp"
+// #include "arrow_io.hpp"
 
 #include "distribution.hpp"
 #include "log_normal.hpp"
 #include "exponential.hpp"
 
+#include "rk4_backend.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <format>
-#include <iostream>
 #include <string>
 #include <vector>
 #include <fstream>
 #include <memory>
-
-void print_progress_bar(float progress) {
-    int barWidth = 70;
-    std::cout << "[";
-    int pos = barWidth*progress;
-    for (int i = 0; i < barWidth; ++i) {
-        if (i < pos) std::cout << "=";
-        else if (i == pos) std::cout << ">>";
-        else std::cout << " ";
-    }
-    std::cout << "] " << int(progress*100.0) << " %\r";
-    std::cout.flush();
-}
 
 std::unique_ptr<Distribution> create_distribution(
     const std::string& type, double mean
@@ -73,7 +61,6 @@ Droplet::Droplet(
         // Resize alpha, diagonal
         m_N_k_vec.resize(m_numbers.size(), max_k + 1);
         m_alpha.resize(m_numbers.size(), max_k + 1);
-        m_diag.resize(m_numbers.size(), max_k + 1);
     }
     else {
         m_vcluster.resize(12*max_mean_number);
@@ -109,7 +96,6 @@ Droplet::Droplet(
         // COLUMNS -> max_k + 1
         m_N_k_vec.resize(m_sizes.size(), max_k + 1);
         m_alpha.resize(m_sizes.size(), max_k + 1);
-        m_diag.resize(m_sizes.size(), max_k + 1);
     }
 
     auto interp = Interpolators(std::format("{}/droplet.txt", m_datadir));
@@ -183,25 +169,8 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
     file.close();
 }
 
-void Droplet::_fun(
-    const double pressure,
-    Eigen::MatrixXd& x
-)
-{
-    // shape of x: N x k
-    // y[0] = -pressure * alpha[0] * x[0];
-    // y[i] = diag[i-1] - diag[i]; for i > 0
-
-    m_diag = pressure * m_alpha.array() * x.array();
-
-    x.block(0, 1, x.rows(), x.cols() - 1).noalias() =
-        m_diag.block(0, 0, m_diag.rows(), m_diag.cols() - 1) -
-        m_diag.block(0, 1, m_diag.rows(), m_diag.cols() - 1);
-
-    x.col(0).noalias() = -m_diag.col(0);
-}
-
 void Droplet::evolove_rk(
+    std::shared_ptr<RK4Backend> rk4,
     const std::size_t no_of_steps,
     const double final_x,
     const double pressure,
@@ -212,7 +181,7 @@ void Droplet::evolove_rk(
 
     // setup output file
 
-    ArrowIO arrowIO(std::format("{}_{}.arrow", m_prefix, filename));
+    // ArrowIO arrowIO(std::format("{}_{}.arrow", m_prefix, filename));
 
     const double stepsize = (final_x - 0) / no_of_steps;
     Eigen::MatrixXd y(m_sizes.size(), y_out.cols());
@@ -221,47 +190,19 @@ void Droplet::evolove_rk(
     y.fill(0);
     y.col(0).setOnes();
 
-    Eigen::MatrixXd temp(y.rows(), y.cols()), kfinal(y.rows(), y.cols());
+    // if (trajectory) arrowIO.write_step(0, y.size(), y.data());
 
-    if (trajectory) arrowIO.write_step(0, y.size(), y.data());
-
-    // Progress bar
-    float progress = 0.0;
-    for (std::size_t step = 1; step <= no_of_steps; step++) {
-
-        // k1
-        temp.noalias() = y;
-        _fun(pressure, temp); // now temp = f(y); k1
-        kfinal.noalias() = temp; // k_final = k1
-
-        // k2
-        temp.noalias() = y + 0.5*stepsize * temp; // temp = y + (h/2)k1
-        _fun(pressure, temp); // now temp = f(y + (h/2)*k1); k2
-        kfinal.noalias() += 2.0*temp; // k_final = k1 + 2k2
-
-        // k3
-        temp.noalias() = y + 0.5*stepsize * temp; // temp = y + (h/2)k2
-        _fun(pressure, temp); // now temp = f(y + (h/2)*k2); k3
-        kfinal.noalias() += 2.0*temp; // k_final = k1 + 2k2 + 2k3
-
-        // k4
-        temp.noalias() = y + stepsize * temp; // temp = y + h*k3
-        _fun(pressure, temp); // now temp = f(y + h*k3); k4
-        kfinal.noalias() += temp; // k_final = k1 + 2k2 + 2k3 + k4
-
-        // Make RK4 step
-        // y += (h/6)*(k1 + 2k2 + 2k3 + k4)
-        y.noalias() += (stepsize/6.0) * kfinal;
-
-        // stream new y
-        if (trajectory) arrowIO.write_step(step, y.size(), y.data());
-
-        if ((step*100) % no_of_steps ) print_progress_bar(progress);
-
-        progress = (step*1.0 + 1)/no_of_steps;
-    }
-    print_progress_bar(1.0);
-    std::cout << std::endl;
+    rk4->solve_ode(
+        no_of_steps,
+        stepsize,
+        pressure,
+        m_alpha.rows(),
+        m_alpha.cols(),
+        m_alpha.data(),
+        // trajectory,
+        // arrowIO,
+        y.data()
+    );
 
     // Save final y
     // Output in a text file
@@ -290,5 +231,5 @@ void Droplet::evolove_rk(
         }
     }
 
-    arrowIO.close();
+     // arrowIO.close();
 }
