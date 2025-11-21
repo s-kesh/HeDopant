@@ -45,15 +45,15 @@ public:
     /*
      * Simulate droplet propagation through the doping cell using Runge-Kutta method
      * no_of_steps: number of steps to evolve, make it large to keep step_size small
-     * final_x: final position, normally doping cell length
+     * doping_length: doping cell length
      * pressure: pressure
      * trajectory: whether to save trajectory, keep true if you want to save I_k at each RK4 step
      * I_k: distribution of dopants to be evolved over doping cell
      */
     void simulate(
-        const std::size_t no_of_steps,
-        const double final_x,
-        const double pressure,
+        const std::vector<std::size_t> no_of_steps,
+        const std::vector<double> doping_length,
+        const std::vector<double> pressure,
         const bool trajectory,
         Eigen::MatrixXd& I_k
     );

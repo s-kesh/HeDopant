@@ -183,48 +183,59 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
 }
 
 void Droplet::simulate(
-    const std::size_t no_of_steps,
-    const double final_x,
-    const double pressure,
+    const std::vector<std::size_t> no_of_steps,
+    const std::vector<double> doping_length,
+    const std::vector<double> pressure,
     const bool trajectory,
     Eigen::MatrixXd& y_out
 ) {
 
-    const double stepsize = (final_x - 0) / no_of_steps;
     Eigen::MatrixXd y(m_sizes.size(), y_out.cols());
 
     // Set Initial conditions
     y.fill(0);
     y.col(0).setOnes();
 
+    // RK4 Solver
     auto rk4 = create_backend();
 
-    rk4->solve_ode(
-        no_of_steps,
-        stepsize,
-        pressure,
-        m_alpha.rows(),
-        m_alpha.cols(),
-        m_alpha.data(),
-        trajectory,
-        std::format("{}_trajectory.arrow", m_prefix),
-        y.data()
-    );
+    std::size_t ll = no_of_steps.size();
+    for (std::size_t i = 0; i < ll; i++) {
+        const double stepsize = doping_length[i]/ no_of_steps[i];
+        const double pr = pressure[i]*100;
 
-    // Save final y
-    // Output in a text file
-    // Header: k, N_k, alpha
-    std::ofstream file(std::format("{}_final_y.txt", m_prefix));
-    for (std::size_t i = 0; i < (std::size_t)y.rows(); i++) {
-        file << "=========================\n";
-        file << std::format("For Initial size: {}\n", m_sizes[i]);
-        file << "k\ty\n";
-        for (std::size_t k = 0; k < (std::size_t)y.cols(); k++) {
-            file << std::format("{}\t{}\n", k, y(i, k));
+        rk4->solve_ode(
+            no_of_steps[i],
+            stepsize,
+            pr,
+            m_alpha.rows(),
+            m_alpha.cols(),
+            m_alpha.data(),
+            trajectory,
+            std::format("{}_trajectory_{}.arrow", m_prefix, i),
+            y.data()
+        );
+
+        // Save final y in a binary file
+        std::ofstream filebin(std::format("{}_final_y_{}.bin", m_prefix, i), std::ios::binary);
+        filebin.write(reinterpret_cast<char*>(y.data()), y.size() * sizeof(double));
+        filebin.close();
+
+        // Save final y
+        // Output in a text file
+        // Header: k, N_k, alpha
+        std::ofstream filetxt(std::format("{}_final_y_{}.txt", m_prefix, i));
+        for (std::size_t i = 0; i < (std::size_t)y.rows(); i++) {
+            filetxt << "=========================\n";
+            filetxt << std::format("For Initial size: {}\n", m_sizes[i]);
+            filetxt << "k\ty\n";
+            for (std::size_t k = 0; k < (std::size_t)y.cols(); k++) {
+                filetxt << std::format("{}\t{}\n", k, y(i, k));
+            }
+            filetxt << "=========================\n";
         }
-        file << "=========================\n";
+        filetxt.close();
     }
-    file.close();
 
     // Now for each mean number, we have a distribution
     if (m_type == "NONE") {

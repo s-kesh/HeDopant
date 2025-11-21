@@ -53,10 +53,24 @@ static void print_config(const YAML::Node& config) {
     } else {
         std::println("  Number of atoms: {}", config["number_of_atoms"].as<std::size_t>());
     }
+
     std::println("  Type: {}", config["type"].as<std::string>());
     std::println("  Max dopant: {}", config["max_dopant"].as<int>());
-    std::println("  Doping cell: {}", config["doping_cell"].as<double>());
-    std::println("  Runge-Kutta steps: {}", config["rk_steps"].as<int>());
+
+    // Check if doping cell is a sequence
+    if (config["doping_cell"].IsSequence()) {
+        std::println("  Doping cells: {}", config["doping_cell"].as<std::vector<double>>());
+    } else {
+        std::println("  Doping cell: {}", config["doping_cell"].as<double>());
+    }
+
+    // Check if Runge-Kutta steps is a sequence
+    if (config["rk_steps"].IsSequence()) {
+        std::println("  Runge-Kutta steps: {}", config["rk_steps"].as<std::vector<int>>());
+    } else {
+        std::println("  Runge-Kutta steps: {}", config["rk_steps"].as<int>());
+    }
+
     std::println("  Dopant: {}", config["dopant"].as<std::string>());
 
     // Check if doping pressure is a sequence
@@ -184,8 +198,8 @@ int main(int argc, char* argv[]) {
     std::vector<std::size_t> he_numbers;
     std::string type;
     std::size_t max_k;
-    std::size_t rk_steps;
-    double L_cell;
+    std::vector<std::size_t> rk_steps;
+    std::vector<double> L_cell;
     std::string dopant;
     std::vector<double> doping_pressure;
     std::string output;
@@ -199,8 +213,14 @@ int main(int argc, char* argv[]) {
             he_numbers.push_back(config["number_of_atoms"].as<std::size_t>());
         type = config["type"].as<std::string>();
         max_k = config["max_dopant"].as<std::size_t>();
-        L_cell = config["doping_cell"].as<double>();
-        rk_steps = config["rk_steps"].as<std::size_t>();
+        if (config["doping_cell"].IsSequence())
+            L_cell = config["doping_cell"].as<std::vector<double>>();
+        else
+            L_cell.push_back(config["doping_cell"].as<double>());
+        if (config["rk_steps"].IsSequence())
+            rk_steps = config["rk_steps"].as<std::vector<std::size_t>>();
+        else
+            rk_steps.push_back(config["rk_steps"].as<std::size_t>());
         dopant = config["dopant"].as<std::string>();
 
         // Check if doping_pressure is a Sequence
@@ -228,35 +248,31 @@ int main(int argc, char* argv[]) {
     Droplet helium(he_numbers, type,
         dopant, max_k, output, datadir);
 
-    // if pressure is a list, then iterate over it
-    for (double pressure : doping_pressure) {
-        // Solve dI_k/dz = AI_k
-        helium.simulate(
-            rk_steps, // Number of steps for Runge-Kutta method
-            L_cell, // Length of doping cell
-            pressure*100, // Pressure in Pa
-            trajectory, // Flag to save trajectory
-            y_matrix // final condition would be saved in it
-        );
+    // Solve dI_k/dz = AI_k
+    helium.simulate(
+        rk_steps, // Number of steps for Runge-Kutta method
+        L_cell, // Length of doping cell
+        doping_pressure, // Pressure in mbar
+        trajectory, // Flag to save trajectory
+        y_matrix // final condition would be saved in it
+    );
 
-        // Write output to file
-        // Header k, y_final
-        std::string name = std::format("{}_{}_mbar_output.txt", output, pressure);
-        std::ofstream file(name);
-        file << "k\t";
+    // Write output to file
+    // Header k, y_final
+    std::string name = std::format("{}_output.txt", output);
+    std::ofstream file(name);
+    file << "k\t";
+    for (std::size_t n = 0; n < he_numbers.size(); n++) {
+        file << he_numbers[n] << "\t";
+    }
+    file << "\n";
+    for (std::size_t k = 0; k < max_k; k++) {
+        file << k << "\t";
         for (std::size_t n = 0; n < he_numbers.size(); n++) {
-            file << he_numbers[n] << "\t";
+            file << y_matrix(n, k) << "\t";
         }
         file << "\n";
-        for (std::size_t k = 0; k < max_k; k++) {
-            file << k << "\t";
-            for (std::size_t n = 0; n < he_numbers.size(); n++) {
-                file << y_matrix(n, k) << "\t";
-            }
-            file << "\n";
-        }
     }
-
 
     return 0;
 }
