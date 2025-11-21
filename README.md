@@ -1,26 +1,26 @@
-# Number of Dopant Calculator
+# HeDopant: Helium Droplet Doping Simulation
 
-This program simulates the **doping process of helium droplets** using a **Runge-Kutta numerical solver**.  
-It calculates the distribution of dopant atoms based on user-defined parameters.
+## Overview
 
----
+HeDopant is a simulation tool for modeling the evolution of dopant cluster-size distributions as helium nanodroplets traverse a doping cell. The simulation integrates the dopant pick-up process using a fourth-order Runge–Kutta (RK4) solver and supports both CPU and GPU execution.
 
 ## Features
 
-- Saves the droplet distribution at each step to an **Arrow IPC stream** for efficient post-processing  
-- Configurable via a YAML file  
+- **Flexible Backend**: Supports both CPU and GPU (via CUDA) for RK4 solver.
+- **Configuration**: Allow configuration through a simple YAML file, but allow overriding the configuration options using the command line. A sample YAML file is provided in the `data` folder.
+- **Dopant Support**: Dopant species are configured using YAML files provided in the `data` folder. Just add your own dopant YAML file and specify it in config.yaml.
+- **Output**: Final distribution of dopant size would be written on the computer. By configuring the flag `trajectory` to `true`, the distribution would be saved at each RK4 step.
 
----
+## Building
 
-## Requirements
+This project uses Meson Build System.
+
+### Prerequisited
 
 - C++23 compiler (e.g., `g++`)  
+- CUDA (for GPU support)
 - [Meson](https://mesonbuild.com/) build system  
-- Dependencies: `gsl`, `yaml-cpp`, `arrow`, `parquet`  
-
----
-
-## Build
+- Dependencies: `eigen`, `yaml-cpp`, `arrow`
 
 ```bash
 meson setup build
@@ -33,36 +33,48 @@ meson compile -C build
 
 ```yaml
 name: "Helium Droplet"
-number_of_atoms: 19000
+number_of_atoms: [10000, 19000]
+type: "LOGNORMAL" # options are: "NONE", "LOGNORMAL", or "EXPONENTIAL"
 dopant: "krypton"
 doping_cell: 0.018 # m
-dopant_pressure: 1E-4 #mbar
-max_dopant: 20000
-rk_steps: 500000
+dopant_pressure: 1E-4
+max_dopant: 100
+rk_steps: 100000
 datadir: "../data"
 output: "he_drop_krypton"
+trajectory: false
 ```
+**Note:**
 
+- Adding multiple `number_of_atoms` does not make the simulation slow. The only cost increase is the final weighted averaging over the droplet distribution.
+- Biggest performance hit comes with setting `trajectory` to `true`.
+  1. Writing to disk is slower than doing calculations.
+  2. In the case of GPU acceleration, it needs to copy the dopant distribution from GPU memory to CPU memory, which is very slow.
+  
 2. Run the program
 
 ```bash
 ./build/HeDopant --config config.yaml
 ```
-- --config <file> : Specify an alternate configuration file
-- --help : Show usage information
+- --config <file>: Specify an alternate configuration file
+- --help: Show usage information
 
-The program writes the droplet evolution as function of distance to {output}_trajectory.arrow (Arrow IPC stream), which can be analyzed in Python, Julia, or other languages supporting Arrow.
-A file showing the evaporated droplet size as function of number of dopant and final distribution would be written to output file.
+You can override any configuration option at the command line.
 
-## Python example
-
-```python
-import pyarrow.ipc as ipc
-import pyarrow as pa
-
-with pa.memory_map("trajectory.arrow", "r") as mmap:
-    reader = ipc.RecordBatchStreamReader(mmap)
-    table = reader.read_all()
-
-print(table)
+```bash
+./build/HeDopant --config config.yaml --dopant water --dopant_pressure 1.5
 ```
+
+## Output
+
+The prefix of output files can be controlled either by setting the option `output` in the config file or by the command line option `--output <prefix>`.
+
+The evolved distribution would be saved as `<prefix>_<pressure>_mbar_output.txt`.
+
+A few additional output files will also be generated to ensure everything is working smoothly.
+
+- `<prefix>_vcluster_ebe.txt`: Velocity and binding energy of He droplet for a certain size. It is interpolated using the `droplet.txt` file in the `data` directory.
+- `<prefix>_<N>_size_distribution.txt`: Size distribution of the droplet with mean size `<N>`.
+- `<prefix>_evap.txt`: For each initial size in droplet distribution, we will have `alpha` parameter and number of remaining He atoms after absorption of `k` dopants.
+- `<prefix>_final_y.txt`: Final dopant distribution without taking droplet distribution into account. It would be the same as the `output.txt` file if you select the distribution type `NONE`.
+- `<prefix>_trajectory.arrow`: Binary file having dopant distribution at each RK4 step. To read this file in a pandas dataframe a simple python script is provided in `utils` directory.

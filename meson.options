@@ -1,0 +1,7 @@
+option(
+  'gpu',
+  type: 'combo',
+  choices: ['auto', 'enabled', 'disabled'],
+  value: 'auto',
+  description: 'Enable or disable GPU (CUDA) support'
+)

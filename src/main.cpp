@@ -17,6 +17,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Core>
 
+
 /*
  * Print help message
  */
@@ -142,7 +143,7 @@ int main(int argc, char* argv[]) {
                 if (i + 1 >= override_args.size() || override_args[i + 1].starts_with("--")) {
                     throw std::runtime_error("Error: " + arg + " requires a value.");
                 }
-                return override_args[++i]; // Consume and return value
+                return override_args[++i];
             };
 
             if (arg == "--number_of_atoms") {
@@ -201,11 +202,13 @@ int main(int argc, char* argv[]) {
         L_cell = config["doping_cell"].as<double>();
         rk_steps = config["rk_steps"].as<std::size_t>();
         dopant = config["dopant"].as<std::string>();
+
         // Check if doping_pressure is a Sequence
         if (config["dopant_pressure"].IsSequence())
             doping_pressure = config["dopant_pressure"].as<std::vector<double>>();
         else
             doping_pressure.push_back(config["dopant_pressure"].as<double>());
+
         output = config["output"].as<std::string>();
         datadir = config["datadir"].as<std::string>();
         trajectory = config["trajectory"].as<bool>();
@@ -221,7 +224,6 @@ int main(int argc, char* argv[]) {
     Eigen::MatrixXd y_matrix(he_numbers.size(), max_k+1);
     y_matrix.fill(0.0);
 
-    // Simulation
     // Define the Droplet object
     Droplet helium(he_numbers, type,
         dopant, max_k, output, datadir);
@@ -229,13 +231,12 @@ int main(int argc, char* argv[]) {
     // if pressure is a list, then iterate over it
     for (double pressure : doping_pressure) {
         // Solve dI_k/dz = AI_k
-        helium.evolove_rk(
+        helium.simulate(
             rk_steps, // Number of steps for Runge-Kutta method
             L_cell, // Length of doping cell
             pressure*100, // Pressure in Pa
             trajectory, // Flag to save trajectory
-            "trajectory", // Filename for trajectory data
-            y_matrix // Initial condition for y; final condition would be saved in it
+            y_matrix // final condition would be saved in it
         );
 
         // Write output to file
@@ -244,7 +245,7 @@ int main(int argc, char* argv[]) {
         std::ofstream file(name);
         file << "k\t";
         for (std::size_t n = 0; n < he_numbers.size(); n++) {
-            file << n << "\t";
+            file << he_numbers[n] << "\t";
         }
         file << "\n";
         for (std::size_t k = 0; k < max_k; k++) {
