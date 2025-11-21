@@ -44,9 +44,13 @@ datadir: "../data"
 output: "he_drop_krypton"
 trajectory: false
 ```
-**Note:** Adding multiple `number_of_atoms` does not make simulation slow.
-The only cost increase is the final weighted averaging over the droplet distribution.
+**Note:**
 
+- Adding multiple `number_of_atoms` does not make the simulation slow. The only cost increase is the final weighted averaging over the droplet distribution.
+- Biggest performance hit comes with setting `trajectory` to `true`.
+  1. Writing to disk is slower than doing calculations.
+  2. In the case of GPU acceleration, it needs to copy the dopant distribution from GPU memory to CPU memory, which is very slow.
+  
 2. Run the program
 
 ```bash
