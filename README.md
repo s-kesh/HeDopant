@@ -34,7 +34,7 @@ meson compile -C build
 ```yaml
 name: "Helium Droplet"
 number_of_atoms: [10000, 19000]
-type: "LOGNORMAL" # options are: "NONE", "LOGNORMAL" or "EXPONENTIAL"
+type: "LOGNORMAL" # options are: "NONE", "LOGNORMAL", or "EXPONENTIAL"
 dopant: "krypton"
 doping_cell: 0.018 # m
 dopant_pressure: 1E-4
@@ -44,6 +44,8 @@ datadir: "../data"
 output: "he_drop_krypton"
 trajectory: false
 ```
+**Note:** Adding multiple `number_of_atoms` does not make simulation slow.
+The only cost increase is the final weighted averaging over the droplet distribution.
 
 2. Run the program
 
