@@ -1,5 +1,7 @@
 #include "rk4_gpu.hpp"
 
+#include "arrow_io.hpp"
+
 #include <cstdlib>
 #include <iostream>
 #include <cuda_runtime.h>
@@ -80,6 +82,10 @@ void RK4Backend_GPU::solve_ode(
 ) {
 
     const int size = rows * cols;
+    ArrowIO arrow_io(output_file);
+    if (trajectory) {
+        arrow_io.write_step(0, rows, cols, y);
+    }
 
     double *d_y = nullptr, *d_alpha = nullptr, *d_temp = nullptr, *d_dia = nullptr, *d_kfinal = nullptr;
 
@@ -119,12 +125,10 @@ void RK4Backend_GPU::solve_ode(
         // d_dia = pressure * alpha * d_temp
         kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         // d_temp = compute_diff(d_dia) = k1
         kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         // kfinal = k1
         CUBLAS_CHECK(cublasDcopy(handle, size, d_temp, 1, d_kfinal, 1));
@@ -137,11 +141,9 @@ void RK4Backend_GPU::solve_ode(
 
         kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         // kfinal += 2 * k2
         CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp, 1, d_kfinal, 1));
@@ -154,11 +156,9 @@ void RK4Backend_GPU::solve_ode(
 
         kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         // kfinal += 2 * k3  (d_temp holds k3)
         CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp, 1, d_kfinal, 1));
@@ -171,11 +171,9 @@ void RK4Backend_GPU::solve_ode(
 
         kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
         CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         // kfinal += k4  (d_temp holds k4)
         CUBLAS_CHECK(cublasDaxpy(handle, size, &one, d_temp, 1, d_kfinal, 1));
@@ -193,7 +191,7 @@ void RK4Backend_GPU::solve_ode(
         if (trajectory) {
             // copy back current y (bytes)
             CUDA_CHECK(cudaMemcpy(y, d_y, size * sizeof(double), cudaMemcpyDeviceToHost));
-            // arrow_io.write_step(step_idx, size, y.data());
+            arrow_io.write_step(step_idx + 1, rows, cols, y);
         }
     }
 

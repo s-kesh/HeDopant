@@ -51,7 +51,7 @@ void RK4Backend_CPU::solve_ode(
     ArrowIO arrow_io(output_file);
 
     if (trajectory) {
-        arrow_io.write_step(0, y.size(), y.data());
+        arrow_io.write_step(0, y.rows(), y.cols(), y.data());
     }
 
     print_progress_bar(progress);
@@ -85,7 +85,7 @@ void RK4Backend_CPU::solve_ode(
         if (100*i % number_of_steps == 0) print_progress_bar(progress);
 
         if (trajectory) {
-             arrow_io.write_step(i, y.size(), y.data());
+             arrow_io.write_step(i + 1, y.rows(), y.cols(), y.data());
         }
     }
     print_progress_bar(1.0);
