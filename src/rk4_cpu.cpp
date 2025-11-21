@@ -1,9 +1,16 @@
-#include "rk4_backend.hpp"
+#include "rk4_cpu.hpp"
+#include "arrow_io.hpp"
 
-#include <iostream>
 #include <Eigen/Dense>
 
-void _fun(
+void print_array(const double* dist) {
+    for (int i = 0; i < 10; ++i) {
+        std::cout << dist[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
+void RK4Backend_CPU::_fun(
     const double pressure,
     const Eigen::MatrixXd& alpha,
     Eigen::MatrixXd& diag,
@@ -31,8 +38,8 @@ void RK4Backend_CPU::solve_ode(
     const int rows,
     const int cols,
     const double* alpha_raw,
-    // const bool trajectory,
-    // ArrowIO& arrow_io,
+    const bool trajectory,
+    const std::string& output_file,
     double *y_raw
 )
 {
@@ -41,10 +48,18 @@ void RK4Backend_CPU::solve_ode(
     Eigen::Map<const Eigen::MatrixXd> alpha(alpha_raw, rows, cols);
 
     float progress = 0.0f;
+    ArrowIO arrow_io(output_file);
+
+    if (trajectory) {
+        arrow_io.write_step(0, y.size(), y.data());
+    }
+
+    print_progress_bar(progress);
     for (std::size_t i = 0; i < number_of_steps; ++i)
     {
         // k1
         temp.noalias() = y;
+
         _fun(pressure, alpha, dia, temp); // now temp = f(y); k1
         kfinal.noalias() = temp; // kfinal = k1
 
@@ -69,10 +84,12 @@ void RK4Backend_CPU::solve_ode(
         progress = static_cast<float>(i + 1) / number_of_steps;
         if (100*i % number_of_steps == 0) print_progress_bar(progress);
 
-        // if (trajectory) {
-        //     arrow_io.write_step(i, y.size(), y.data());
-        // }
+        if (trajectory) {
+             arrow_io.write_step(i, y.size(), y.data());
+        }
     }
     print_progress_bar(1.0);
     std::cout << std::endl;
+
+    arrow_io.close();
 }

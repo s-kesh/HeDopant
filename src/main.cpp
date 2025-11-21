@@ -18,18 +18,18 @@
 #include <Eigen/Core>
 
 #include "rk4_backend.hpp"
+#include "rk4_cpu.hpp"
 
 #ifdef RK4_HAS_GPU
 #include <cuda_runtime.h>
+#include "rk4_gpu.hpp"
 #endif
 
 std::shared_ptr<RK4Backend> create_backend()
 {
 #ifdef RK4_HAS_GPU
     int count = 0;
-    cudaError_t status = cudaGetDeviceCount(&count);
-    std::println("GPU backend should be selected, device count: {}", count);
-    if (status == cudaSuccess && count > 0) {
+    if (cudaGetDeviceCount(&count) == cudaSuccess && count > 0) {
         std::println("GPU backend selected");
         return std::make_shared<RK4Backend_GPU>();
     }

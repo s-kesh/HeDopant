@@ -2,7 +2,6 @@
 #include "constants.hpp"
 #include "interpolate.hpp"
 #include "dopant.hpp"
-// #include "arrow_io.hpp"
 
 #include "distribution.hpp"
 #include "log_normal.hpp"
@@ -179,18 +178,12 @@ void Droplet::evolove_rk(
     Eigen::MatrixXd& y_out
 ) {
 
-    // setup output file
-
-    // ArrowIO arrowIO(std::format("{}_{}.arrow", m_prefix, filename));
-
     const double stepsize = (final_x - 0) / no_of_steps;
     Eigen::MatrixXd y(m_sizes.size(), y_out.cols());
 
     // Set Initial conditions
     y.fill(0);
     y.col(0).setOnes();
-
-    // if (trajectory) arrowIO.write_step(0, y.size(), y.data());
 
     rk4->solve_ode(
         no_of_steps,
@@ -199,8 +192,8 @@ void Droplet::evolove_rk(
         m_alpha.rows(),
         m_alpha.cols(),
         m_alpha.data(),
-        // trajectory,
-        // arrowIO,
+        trajectory,
+        std::format("{}_{}.arrow", m_prefix, filename),
         y.data()
     );
 
@@ -230,6 +223,4 @@ void Droplet::evolove_rk(
             y_out.row(n) = y.transpose() * m_sizes_dist.col(n);
         }
     }
-
-     // arrowIO.close();
 }
