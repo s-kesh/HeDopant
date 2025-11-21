@@ -1,3 +1,6 @@
+#include <print>
+#include <fstream>
+
 #include "droplet.hpp"
 #include "constants.hpp"
 #include "interpolate.hpp"
@@ -8,14 +11,25 @@
 #include "exponential.hpp"
 
 #include "rk4_backend.hpp"
+#include "rk4_cpu.hpp"
 
-#include <algorithm>
-#include <cstddef>
-#include <format>
-#include <string>
-#include <vector>
-#include <fstream>
-#include <memory>
+#ifdef RK4_HAS_GPU
+#include <cuda_runtime.h>
+#include "rk4_gpu.hpp"
+#endif
+
+std::shared_ptr<RK4Backend> create_backend()
+{
+#ifdef RK4_HAS_GPU
+    int count = 0;
+    if (cudaGetDeviceCount(&count) == cudaSuccess && count > 0) {
+        std::println("GPU backend selected");
+        return std::make_unique<RK4Backend_GPU>();
+    }
+#endif
+    std::println("CPU backend selected");
+    return std::make_unique<RK4Backend_CPU>();
+}
 
 std::unique_ptr<Distribution> create_distribution(
     const std::string& type, double mean
@@ -168,13 +182,11 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
     file.close();
 }
 
-void Droplet::evolove_rk(
-    std::shared_ptr<RK4Backend> rk4,
+void Droplet::simulate(
     const std::size_t no_of_steps,
     const double final_x,
     const double pressure,
     const bool trajectory,
-    const std::string filename,
     Eigen::MatrixXd& y_out
 ) {
 
@@ -185,6 +197,8 @@ void Droplet::evolove_rk(
     y.fill(0);
     y.col(0).setOnes();
 
+    auto rk4 = create_backend();
+
     rk4->solve_ode(
         no_of_steps,
         stepsize,
@@ -193,7 +207,7 @@ void Droplet::evolove_rk(
         m_alpha.cols(),
         m_alpha.data(),
         trajectory,
-        std::format("{}_{}.arrow", m_prefix, filename),
+        std::format("{}_trajectory.arrow", m_prefix),
         y.data()
     );
 

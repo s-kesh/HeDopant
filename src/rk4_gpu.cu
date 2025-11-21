@@ -51,13 +51,14 @@ __global__ void kernel_compute_diff(
     if (idx >= total) return;
 
     int i = idx % N;     // row
-    int j = idx / N;     // column (0..K-1)
+    int j = idx / N;     // column
 
-    if (j == 0) {
+    if (idx/N == 0) { // column
         x_out[idx] = -d[idx];
     } else {
-        // idx_prev = i + (j-1)*N
-        x_out[idx] = d[i + (j - 1) * N] - d[idx];
+        // idx_prev = row + (col-1)*N
+        int idx_prev = (i) + (j - 1) * N;
+        x_out[idx] = d[idx_prev] - d[idx];
     }
 }
 
@@ -110,7 +111,7 @@ void RK4Backend_GPU::solve_ode(
     const double half_step = 0.5 * step_size;
     const double sixth_step = step / 6.0;
 
-    int threads_per_block = 256;
+    int threads_per_block = 64;
     int blocks_per_grid = static_cast<int>((size + threads_per_block - 1) / threads_per_block);
 
     float progress = 0.0f;

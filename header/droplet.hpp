@@ -1,14 +1,11 @@
 #pragma once
 
 #include "dopant.hpp"
-#include "rk4_backend.hpp"
-
 #include <cstddef>
 #include <string>
 #include <vector>
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <memory>
 
 #define DIST_STEP 100
 
@@ -46,28 +43,20 @@ public:
 
 
     /*
-     * Evolve droplet over doping cell using Runge-Kutta method
+     * Simulate droplet propagation through the doping cell using Runge-Kutta method
      * no_of_steps: number of steps to evolve, make it large to keep step_size small
      * final_x: final position, normally doping cell length
      * pressure: pressure
      * trajectory: whether to save trajectory, keep true if you want to save I_k at each RK4 step
-     * filename: filename to save I_k at each RK4 step
      * I_k: distribution of dopants to be evolved over doping cell
      */
-    void evolove_rk(
-        std::shared_ptr<RK4Backend> rk4,
+    void simulate(
         const std::size_t no_of_steps,
         const double final_x,
         const double pressure,
         const bool trajectory,
-        const std::string filename,
         Eigen::MatrixXd& I_k
     );
-
-    /*
-     * No of atoms in droplet left after doping of k dopants
-     */
-    std::vector<std::size_t> N_k_vec;
 
 private:
     std::size_t max_mean_number;
