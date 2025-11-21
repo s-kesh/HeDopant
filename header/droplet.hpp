@@ -48,6 +48,7 @@ public:
      * doping_length: doping cell length
      * pressure: pressure
      * trajectory: whether to save trajectory, keep true if you want to save I_k at each RK4 step
+     * input: input file name
      * I_k: distribution of dopants to be evolved over doping cell
      */
     void simulate(
@@ -55,6 +56,7 @@ public:
         const std::vector<double> doping_length,
         const std::vector<double> pressure,
         const bool trajectory,
+        const std::string input,
         Eigen::MatrixXd& I_k
     );
 

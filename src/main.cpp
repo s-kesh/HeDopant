@@ -36,6 +36,7 @@ static void print_help(const char* prog) {
     std::println("  --rk_steps <S>         Number of Runge-Kutta steps");
     std::println("  --dopant <name>        Dopant species (e.g., 'krypton', 'water')");
     std::println("  --dopant_pressure <P>  Dopant pressure (in mbar, will be converted to Pa)");
+    std::println("  --input <path>         Path to input matrix");
     std::println("  --output <prefix>      File prefix for output files");
     std::println("  --datadir <path>       Path to data directory");
     std::println("  --trajectory <bool>  Whether to output trajectory data per step");
@@ -83,6 +84,8 @@ static void print_config(const YAML::Node& config) {
     std::println("  Output prefix: {}", config["output"].as<std::string>());
     std::println("  Data directory: {}", config["datadir"].as<std::string>());
     std::println("  Trajectory: {}", config["trajectory"].as<bool>());
+
+    std::println("  Input matrix: {}", config["input"].as<std::string>());
 }
 
 /*
@@ -180,6 +183,8 @@ int main(int argc, char* argv[]) {
                 config["datadir"] = get_value();
             } else if (arg == "--trajectory") {
                 config["trajectory"] = get_value();
+            } else if (arg == "--input") {
+                config["input"] = get_value();
             } else {
                 throw std::runtime_error("Unknown option: " + arg);
             }
@@ -202,6 +207,7 @@ int main(int argc, char* argv[]) {
     std::vector<double> L_cell;
     std::string dopant;
     std::vector<double> doping_pressure;
+    std::string input;
     std::string output;
     std::string datadir;
     bool trajectory;
@@ -229,6 +235,7 @@ int main(int argc, char* argv[]) {
         else
             doping_pressure.push_back(config["dopant_pressure"].as<double>());
 
+        input = config["input"].as<std::string>();
         output = config["output"].as<std::string>();
         datadir = config["datadir"].as<std::string>();
         trajectory = config["trajectory"].as<bool>();
@@ -254,6 +261,7 @@ int main(int argc, char* argv[]) {
         L_cell, // Length of doping cell
         doping_pressure, // Pressure in mbar
         trajectory, // Flag to save trajectory
+        input, // Input file name
         y_matrix // final condition would be saved in it
     );
 

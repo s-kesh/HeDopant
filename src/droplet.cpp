@@ -187,6 +187,7 @@ void Droplet::simulate(
     const std::vector<double> doping_length,
     const std::vector<double> pressure,
     const bool trajectory,
+    const std::string input,
     Eigen::MatrixXd& y_out
 ) {
 
@@ -195,6 +196,15 @@ void Droplet::simulate(
     // Set Initial conditions
     y.fill(0);
     y.col(0).setOnes();
+
+    // Input file exists and is not empty
+    if (!input.empty()) {
+        std::ifstream file(input, std::ios::binary);
+        if (file.is_open()) {
+            // Read the binary data to y
+            file.read(reinterpret_cast<char*>(y.data()), y.size() * sizeof(double));
+        }
+    }
 
     // RK4 Solver
     auto rk4 = create_backend();
