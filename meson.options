@@ -1,7 +1,7 @@
 option(
-  'gpu',
+  'rk4backend',
   type: 'combo',
-  choices: ['auto', 'enabled', 'disabled'],
+  choices: ['auto', 'cuda', 'opencl', 'cpu'],
   value: 'auto',
-  description: 'Enable or disable GPU (CUDA) support'
+  description: 'Enable or disable GPU support'
 )

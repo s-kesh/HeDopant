@@ -1,7 +1,7 @@
 #pragma once
 #include "rk4_backend.hpp"
 
-class RK4Backend_GPU : public RK4Backend {
+class RK4Backend_OpenCL : public RK4Backend {
 public:
     void solve_ode(
         const std::size_t number_of_steps,

@@ -14,19 +14,27 @@
 #include "rk4_backend.hpp"
 #include "rk4_cpu.hpp"
 
-#ifdef RK4_HAS_GPU
+#ifdef RK4_BACKEND_CUDA
 #include <cuda_runtime.h>
 #include "rk4_gpu.hpp"
 #endif
 
+#ifdef RK4_BACKEND_OPENCL
+#include "rk4_opencl.hpp"
+#endif
+
 std::shared_ptr<RK4Backend> create_backend()
 {
-#ifdef RK4_HAS_GPU
+#ifdef RK4_BACKEND_CUDA
     int count = 0;
     if (cudaGetDeviceCount(&count) == cudaSuccess && count > 0) {
         std::println("GPU backend selected");
-        return std::make_unique<RK4Backend_GPU>();
+        return std::make_unique<RK4Backend_CUDA>();
     }
+#endif
+#ifdef RK4_BACKEND_OPENCL
+    std::println("OpenCL backend selected");
+    return std::make_unique<RK4Backend_OpenCL>();
 #endif
     std::println("CPU backend selected");
     return std::make_unique<RK4Backend_CPU>();
