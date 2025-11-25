@@ -2,6 +2,7 @@
 #include <fstream>
 
 #include "droplet.hpp"
+#include "Eigen/Core"
 #include "constants.hpp"
 #include "interpolate.hpp"
 #include "dopant.hpp"
@@ -48,13 +49,14 @@ std::unique_ptr<Distribution> create_distribution(
 Droplet::Droplet(
     const std::vector<std::size_t> numbers,
     const std::string type,
+    const std::size_t dist_step,
     const std::string dopant_name,
     const std::size_t max_k,
     const std::string prefix,
     const std::string datadir
 )
-    : m_numbers(numbers), m_type(type), m_dopX(dopant_name, datadir)
-    , m_prefix(prefix), m_datadir(datadir)
+    : m_numbers(numbers), m_type(type), m_dist_step(dist_step),
+    m_dopX(dopant_name, datadir), m_prefix(prefix), m_datadir(datadir)
 {
     double con1 = (1.0 / constants::kB / m_dopX.temprature()) * 4.0 * constants::pi * constants::he_density * constants::he_density;
     double con2 = m_dopX.e_Int() + (1.5 * constants::kB * m_dopX.temprature()) + (m_dopX.e_He_X() + m_dopX.e_X_X())*constants::e;
@@ -80,10 +82,13 @@ Droplet::Droplet(
         m_evap.resize(12*max_mean_number);
 
         // Creating an array from 0 to 10*max_mean_number with step of DIST_STEP
-        int size = (10*max_mean_number - 0) / DIST_STEP;
+        int size = 0;
+        if (type == "LOGNORMAL") size = (5*max_mean_number - 0) / dist_step;
+        else size = (10*max_mean_number - 0) / dist_step;
+
         m_sizes.resize(size);
         for (int i = 0; i < m_sizes.size(); i++) {
-            m_sizes[i] = 0 + DIST_STEP*i;
+            m_sizes[i] = 0 + dist_step*i;
         }
 
         m_sizes_dist.resize(m_sizes.size(), numbers.size());
@@ -97,9 +102,9 @@ Droplet::Droplet(
         // Save size distributions to a txt file
         for (std::size_t n = 0; n < numbers.size(); n++) {
             std::ofstream file(std::format("{}_{}_size_distribution.txt", m_prefix, numbers[n]));
-            file << "Index\tdroplet_size\tLognormal\n";
+            std::println(file, "Index\tdroplet_size\tLognormal");
             for (int i = 0; i < m_sizes.size(); i++) {
-                file << std::format("{}\t{}\t{}\n", i, m_sizes[i], m_sizes_dist(i, n));
+                std::println(file, "{}\t{}\t{}", i, m_sizes[i], m_sizes_dist(i, n));
             }
         }
 
@@ -119,9 +124,9 @@ Droplet::Droplet(
 
     // Save the calculated vcluster and evap values to a file
     std::ofstream file(std::format("{}_vcluster_ebe.txt", m_prefix));
-    file << "droplet_size\tvelocity\tbinding_energy\n";
+    std::println(file, "droplet_size\tvelocity\tbinding_energy");
     for (std::size_t i = 0; i < max_mean_number+5; i++) {
-        file << std::format("{}\t{}\t{}\n", i, m_vcluster[i], m_evap[i]);
+        std::println(file, "{}\t{}\t{}", i, m_vcluster[i], m_evap[i]);
     }
     file.close();
 
@@ -171,13 +176,13 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
     // Header: k, N_k, alpha
     std::ofstream file(std::format("{}_evap.txt", m_prefix));
     for (std::size_t i = 0; i < (std::size_t)m_sizes.size(); i++) {
-        file << "=========================\n";
-        file << std::format("For Initial size: {}\n", m_sizes[i]);
-        file << "k\tN_k\talpha\n";
+        std::println(file, "=========================");
+        std::println(file, "For Initial size: {}", m_sizes[i]);
+        std::println(file, "k\tN_k\talpha");
         for (std::size_t k = 0; k < max_k + 1; k++) {
-            file << std::format("{}\t{}\t{}\n", k, m_N_k_vec(i, k), m_alpha(i, k));
+            std::println(file, "{}\t{}\t{}", k, m_N_k_vec(i, k), m_alpha(i, k));
         }
-        file << "=========================\n";
+        std::println(file, "=========================");
     }
     file.close();
 }
@@ -188,7 +193,8 @@ void Droplet::simulate(
     const std::vector<double> pressure,
     const bool trajectory,
     const std::string input,
-    Eigen::MatrixXd& y_out
+    Eigen::MatrixXd& y_out,
+    Eigen::MatrixXd& N_k_out
 ) {
 
     Eigen::MatrixXd y(m_sizes.size(), y_out.cols());
@@ -196,6 +202,19 @@ void Droplet::simulate(
     // Set Initial conditions
     y.fill(0);
     y.col(0).setOnes();
+
+    // initialize N_k
+    Eigen::MatrixXd N_k;
+    if (m_type != "NONE") {
+        N_k.resize(m_sizes.size(), m_sizes.size());
+        N_k_out.resize(y_out.rows(), m_sizes.size());
+    } else {
+        N_k.resize(m_sizes.size(), (max_mean_number/m_dist_step)+1);
+        N_k_out.resize(y_out.rows(), (max_mean_number/m_dist_step)+1);
+    }
+
+    N_k.fill(0);
+    N_k_out.fill(0);
 
     // Input file exists and is not empty
     if (!input.empty()) {
@@ -226,36 +245,65 @@ void Droplet::simulate(
             y.data()
         );
 
+        _calculate_nk_distribution(y, N_k);
+
         // Save final y in a binary file
         std::ofstream filebin(std::format("{}_final_y_{}.bin", m_prefix, i), std::ios::binary);
         filebin.write(reinterpret_cast<char*>(y.data()), y.size() * sizeof(double));
         filebin.close();
 
-        // Save final y
+        // Save final y and N_k
         // Output in a text file
-        // Header: k, N_k, alpha
-        std::ofstream filetxt(std::format("{}_final_y_{}.txt", m_prefix, i));
+        std::ofstream filetxt_k(std::format("{}_final_k_{}.txt", m_prefix, i));
+        std::ofstream filetxt_Nk(std::format("{}_final_Nk_{}.txt", m_prefix, i));
         for (std::size_t i = 0; i < (std::size_t)y.rows(); i++) {
-            filetxt << "=========================\n";
-            filetxt << std::format("For Initial size: {}\n", m_sizes[i]);
-            filetxt << "k\ty\n";
+            std::println(filetxt_k,  "=========================");
+            std::println(filetxt_Nk, "=========================");
+            std::println(filetxt_k, "For Initial size: {}", m_sizes[i]);
+            std::println(filetxt_Nk, "For Initial size: {}", m_sizes[i]);
+            std::println(filetxt_k, "k\ty");
+            std::println(filetxt_Nk, "N_k\ty");
             for (std::size_t k = 0; k < (std::size_t)y.cols(); k++) {
-                filetxt << std::format("{}\t{}\n", k, y(i, k));
+                std::println(filetxt_k, "{}\t{}", k, y(i, k));
             }
-            filetxt << "=========================\n";
+            for (std::size_t nk = 0; nk < (std::size_t)N_k.cols(); nk++) {
+                std::println(filetxt_Nk, "{}\t{}", nk, N_k(i, nk));
+            }
+            std::println(filetxt_k,  "=========================");
+            std::println(filetxt_Nk, "=========================");
         }
-        filetxt.close();
+        filetxt_k.close();
+        filetxt_Nk.close();
     }
 
     // Now for each mean number, we have a distribution
     if (m_type == "NONE") {
+        // Distribution of dopant size
         y_out.noalias() = y;
+        N_k_out.noalias() = N_k;
     }
     else {
         // Now multiple y with size distribution
         // shape[k] = shape[Nxk].T shape[N]
+
         for (int n = 0; n < y_out.rows(); n++) {
             y_out.row(n) = y.transpose() * m_sizes_dist.col(n);
+            N_k_out.row(n) = N_k.transpose() * m_sizes_dist.col(n);
+        }
+    }
+}
+
+void Droplet::_calculate_nk_distribution(
+    const Eigen::MatrixXd& Ik,
+    Eigen::MatrixXd& Nk
+)
+{
+    int rows = Ik.rows();
+    int cols = Ik.cols();
+    for (int k = 0; k < cols; k++) {
+        for (int i = 0; i < rows; i++) {
+            int initial_size = m_N_k_vec(i, k);
+            Nk(i, initial_size/m_dist_step) += Ik(i, k);
         }
     }
 }

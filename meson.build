@@ -34,7 +34,7 @@ cuda_dep = dependency(
   modules: ['cublas'],
 )
 
-has_gpu = true
+has_gpu = false
 
 if gpu_opt == 'disabled'
   message('GPU support explicitly disabled by user.')

@@ -31,6 +31,7 @@ static void print_help(const char* prog) {
     std::println("Configuration Overrides (these override the YAML file):");
     std::println("  --number_of_atoms <N>  Number of helium atoms");
     std::println("  --type <TYPE>          Distribution type: NONE or LOGNORMAL");
+    std::println("  --dist_step <D>        Step size for distribution");
     std::println("  --max_dopant <K>       Max dopant cluster size to track");
     std::println("  --doping_cell <L>      Length of the doping cell (in meters)");
     std::println("  --rk_steps <S>         Number of Runge-Kutta steps");
@@ -56,6 +57,7 @@ static void print_config(const YAML::Node& config) {
     }
 
     std::println("  Type: {}", config["type"].as<std::string>());
+    std::println("  Step size: {}", config["dist_step"].as<int>());
     std::println("  Max dopant: {}", config["max_dopant"].as<int>());
 
     // Check if doping cell is a sequence
@@ -167,6 +169,8 @@ int main(int argc, char* argv[]) {
                 config["number_of_atoms"] = get_value();
             } else if (arg == "--type") {
                 config["type"] = get_value();
+            } else if (arg == "--dist_step") {
+                config["dist_step"] = get_value();
             } else if (arg == "--max_dopant") {
                 config["max_dopant"] = get_value();
             } else if (arg == "--doping_cell") {
@@ -202,6 +206,7 @@ int main(int argc, char* argv[]) {
     // Read all the variables from config file or overriden arguments
     std::vector<std::size_t> he_numbers;
     std::string type;
+    std::size_t dist_step;
     std::size_t max_k;
     std::vector<std::size_t> rk_steps;
     std::vector<double> L_cell;
@@ -218,6 +223,7 @@ int main(int argc, char* argv[]) {
         else
             he_numbers.push_back(config["number_of_atoms"].as<std::size_t>());
         type = config["type"].as<std::string>();
+        dist_step = config["dist_step"].as<std::size_t>();
         max_k = config["max_dopant"].as<std::size_t>();
         if (config["doping_cell"].IsSequence())
             L_cell = config["doping_cell"].as<std::vector<double>>();
@@ -248,12 +254,20 @@ int main(int argc, char* argv[]) {
 
     // To keep state of intensities
     // one vector for each mean_size
-    Eigen::MatrixXd y_matrix(he_numbers.size(), max_k+1);
-    y_matrix.fill(0.0);
+    Eigen::MatrixXd I_k_matrix(he_numbers.size(), max_k+1);
+    std::size_t max_size = *std::max_element(he_numbers.begin(), he_numbers.end());
+    Eigen::MatrixXd N_k_matrix(he_numbers.size(), max_size);
 
     // Define the Droplet object
-    Droplet helium(he_numbers, type,
-        dopant, max_k, output, datadir);
+    Droplet helium(
+        he_numbers,
+        type,
+        dist_step,
+        dopant,
+        max_k,
+        output,
+        datadir
+    );
 
     // Solve dI_k/dz = AI_k
     helium.simulate(
@@ -262,24 +276,55 @@ int main(int argc, char* argv[]) {
         doping_pressure, // Pressure in mbar
         trajectory, // Flag to save trajectory
         input, // Input file name
-        y_matrix // final condition would be saved in it
+        I_k_matrix, // final condition would be saved in it
+        N_k_matrix // final condition would be saved in it
     );
 
     // Write output to file
     // Header k, y_final
-    std::string name = std::format("{}_output.txt", output);
-    std::ofstream file(name);
-    file << "k\t";
+    std::string k_name = std::format("{}_dist_k.txt", output);
+    std::string nk_name = std::format("{}_dist_Nk.txt", output);
+    std::ofstream k_file(k_name);
+    std::ofstream nk_file(nk_name);
+
+    std::print(k_file, "k\t");
+    std::print(nk_file, "k\t");
     for (std::size_t n = 0; n < he_numbers.size(); n++) {
-        file << he_numbers[n] << "\t";
+        std::print(k_file, "{}\t", he_numbers[n]);
+        std::print(nk_file, "{}\t", he_numbers[n]);
     }
-    file << "\n";
+    std::print(k_file, "\n");
+    std::print(nk_file, "\n");
+
     for (std::size_t k = 0; k < max_k; k++) {
-        file << k << "\t";
+        std::print(k_file, "{}\t", k);
         for (std::size_t n = 0; n < he_numbers.size(); n++) {
-            file << y_matrix(n, k) << "\t";
+            std::print(k_file, "{}\t", I_k_matrix(n, k));
         }
-        file << "\n";
+        std::print(k_file, "\n");
+    }
+
+    for (int nk = 0; nk < N_k_matrix.cols(); nk++) {
+        std::print(nk_file, "{}\t", dist_step*nk);
+        for (std::size_t n = 0; n < he_numbers.size(); n++) {
+            std::print(nk_file, "{}\t", N_k_matrix(n, nk));
+        }
+        std::print(nk_file, "\n");
+    }
+
+
+    // Lets calculate the mean dopant size for distributions
+    for (std::size_t n = 0; n < he_numbers.size(); n++) {
+        Eigen::VectorXd dopant_sizes = Eigen::VectorXd::LinSpaced(I_k_matrix.cols(), 0, I_k_matrix.cols());
+        double num = I_k_matrix.row(n).dot(dopant_sizes);
+        double den = I_k_matrix.row(n).sum();
+        std::println("Mean dopant size for distribution {} is {}", he_numbers[n], num / den);
+
+        Eigen::VectorXd droplet_sizes = Eigen::VectorXd::LinSpaced(N_k_matrix.cols(), 0, dist_step*N_k_matrix.cols());
+        N_k_matrix.col(0).setZero();
+        num = droplet_sizes.dot(N_k_matrix.row(n));
+        den = N_k_matrix.row(n).sum();
+        std::println("Mean droplet size after doping for distribution {} is {}", he_numbers[n], num / den);
     }
 
     return 0;
