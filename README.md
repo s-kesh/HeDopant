@@ -6,7 +6,7 @@ HeDopant is a simulation tool for modeling the evolution of dopant cluster-size 
 
 ## Features
 
-- **Flexible Backend**: Supports both CPU and GPU (via CUDA) for RK4 solver.
+- **Flexible Backend**: Supports both CPU and GPU (via CUDA or OpenCL) for RK4 solver.
 - **Configuration**: Allow configuration through a simple YAML file, but allow overriding the configuration options using the command line. A sample YAML file is provided in the `data` folder.
 - **Dopant Support**: Dopant species are configured using YAML files provided in the `data` folder. Just add your own dopant YAML file and specify it in config.yaml.
 - **Output**: Final distribution of dopant size would be written on the computer. By configuring the flag `trajectory` to `true`, the distribution would be saved at each RK4 step.
@@ -20,7 +20,7 @@ This project uses Meson Build System.
 - C++23 compiler (e.g., `g++`)  
 - CUDA (for GPU support)
 - [Meson](https://mesonbuild.com/) build system  
-- Dependencies: `eigen`, `yaml-cpp`, `arrow`
+- Dependencies: `eigen`, `yaml-cpp`, `arrow.`
 
 ```bash
 meson setup build
