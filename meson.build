@@ -4,6 +4,7 @@ project(
   version: '1.0',
   default_options: [
     'cpp_std=c++23',
+    'cuda_std=c++17',
     'warning_level=3',
   ],
 )
@@ -75,18 +76,13 @@ elif backend_opt == 'cpu'
 endif
 
 # Base source files
-srcs = files(
-  'src/droplet.cpp',
-  'src/interpolate.cpp',
-  'src/main.cpp',
-)
+srcs = files('src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp', 'src/rk4_cpu.cpp')
 
 project_dependencies = [yaml_dep, arrow_dep, eigen_dep]
 
 if selected_backend == 'cuda'
   add_languages('cuda')
   add_project_arguments(['-DRK4_HAS_GPU', '-DRK4_BACKEND_CUDA'], language: 'cpp')
-  add_project_arguments(['-DCUDA_STD=c++17'], language: 'cuda')
   srcs += files('src/rk4_cuda.cu')
   project_dependencies += [cuda_dep]
 
@@ -94,9 +90,6 @@ elif selected_backend == 'opencl'
   add_project_arguments(['-DRK4_HAS_GPU', '-DRK4_BACKEND_OPENCL'], language: 'cpp')
   srcs += files('src/rk4_opencl.cpp')
   project_dependencies += [opencl_dep, clblast_dep]
-
-else
-  srcs += files('src/rk4_cpu.cpp')
 endif
 
 # Build Executable

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <exception>
+#include <filesystem>
 #include <format>
 #include <numeric>
 #include <print>
@@ -252,6 +253,9 @@ int main(int argc, char* argv[]) {
             e.what());
     }
 
+    // Create output directory
+    std::filesystem::create_directory(output);
+
     // To keep state of intensities
     // one vector for each mean_size
     Eigen::MatrixXd I_k_matrix(he_numbers.size(), max_k+1);
@@ -282,8 +286,8 @@ int main(int argc, char* argv[]) {
 
     // Write output to file
     // Header k, y_final
-    std::string k_name = std::format("{}_dist_k.txt", output);
-    std::string nk_name = std::format("{}_dist_Nk.txt", output);
+    std::string k_name = std::format("{}/dist_k.txt", output);
+    std::string nk_name = std::format("{}/dist_Nk.txt", output);
     std::ofstream k_file(k_name);
     std::ofstream nk_file(nk_name);
 

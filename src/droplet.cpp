@@ -16,7 +16,7 @@
 
 #ifdef RK4_BACKEND_CUDA
 #include <cuda_runtime.h>
-#include "rk4_gpu.hpp"
+#include "rk4_cuda.hpp"
 #endif
 
 #ifdef RK4_BACKEND_OPENCL
@@ -60,11 +60,11 @@ Droplet::Droplet(
     const std::size_t dist_step,
     const std::string dopant_name,
     const std::size_t max_k,
-    const std::string prefix,
+    const std::string outdir,
     const std::string datadir
 )
     : m_numbers(numbers), m_type(type), m_dist_step(dist_step),
-    m_dopX(dopant_name, datadir), m_prefix(prefix), m_datadir(datadir)
+    m_dopX(dopant_name, datadir), m_output(outdir), m_datadir(datadir)
 {
     double con1 = (1.0 / constants::kB / m_dopX.temprature()) * 4.0 * constants::pi * constants::he_density * constants::he_density;
     double con2 = m_dopX.e_Int() + (1.5 * constants::kB * m_dopX.temprature()) + (m_dopX.e_He_X() + m_dopX.e_X_X())*constants::e;
@@ -109,7 +109,7 @@ Droplet::Droplet(
 
         // Save size distributions to a txt file
         for (std::size_t n = 0; n < numbers.size(); n++) {
-            std::ofstream file(std::format("{}_{}_size_distribution.txt", m_prefix, numbers[n]));
+            std::ofstream file(std::format("{}/He_{}_size_distribution.txt", m_output, numbers[n]));
             std::println(file, "Index\tdroplet_size\tLognormal");
             for (int i = 0; i < m_sizes.size(); i++) {
                 std::println(file, "{}\t{}\t{}", i, m_sizes[i], m_sizes_dist(i, n));
@@ -131,7 +131,7 @@ Droplet::Droplet(
     }
 
     // Save the calculated vcluster and evap values to a file
-    std::ofstream file(std::format("{}_vcluster_ebe.txt", m_prefix));
+    std::ofstream file(std::format("{}/vcluster_ebe.txt", m_output));
     std::println(file, "droplet_size\tvelocity\tbinding_energy");
     for (std::size_t i = 0; i < max_mean_number+5; i++) {
         std::println(file, "{}\t{}\t{}", i, m_vcluster[i], m_evap[i]);
@@ -182,7 +182,7 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
 
     // Output in a text file
     // Header: k, N_k, alpha
-    std::ofstream file(std::format("{}_evap.txt", m_prefix));
+    std::ofstream file(std::format("{}/evap.txt", m_output));
     for (std::size_t i = 0; i < (std::size_t)m_sizes.size(); i++) {
         std::println(file, "=========================");
         std::println(file, "For Initial size: {}", m_sizes[i]);
@@ -249,21 +249,21 @@ void Droplet::simulate(
             m_alpha.cols(),
             m_alpha.data(),
             trajectory,
-            std::format("{}_trajectory_{}.arrow", m_prefix, i),
+            std::format("{}/trajectory_{}.arrow", m_output, i),
             y.data()
         );
 
         _calculate_nk_distribution(y, N_k);
 
         // Save final y in a binary file
-        std::ofstream filebin(std::format("{}_final_y_{}.bin", m_prefix, i), std::ios::binary);
+        std::ofstream filebin(std::format("{}/final_y_{}.bin", m_output, i), std::ios::binary);
         filebin.write(reinterpret_cast<char*>(y.data()), y.size() * sizeof(double));
         filebin.close();
 
         // Save final y and N_k
         // Output in a text file
-        std::ofstream filetxt_k(std::format("{}_final_k_{}.txt", m_prefix, i));
-        std::ofstream filetxt_Nk(std::format("{}_final_Nk_{}.txt", m_prefix, i));
+        std::ofstream filetxt_k(std::format("{}/final_k_{}.txt", m_output, i));
+        std::ofstream filetxt_Nk(std::format("{}/final_Nk_{}.txt", m_output, i));
         for (std::size_t i = 0; i < (std::size_t)y.rows(); i++) {
             std::println(filetxt_k,  "=========================");
             std::println(filetxt_Nk, "=========================");

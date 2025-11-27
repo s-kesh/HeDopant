@@ -67,14 +67,14 @@ You can override any configuration option at the command line.
 
 ## Output
 
-The prefix of output files can be controlled either by setting the option `output` in the config file or by the command line option `--output <prefix>`.
+The directory of output files can be controlled either by setting the option `output` in the config file or by the command line option `--output <output>`.
 
-The evolved distribution would be saved as `<prefix>_<pressure>_mbar_output.txt`.
+The evolved distribution would be saved as `<output>/dist_k.txt` and `<output>/dist_Nk.txt`.
 
 A few additional output files will also be generated to ensure everything is working smoothly.
 
-- `<prefix>_vcluster_ebe.txt`: Velocity and binding energy of He droplet for a certain size. It is interpolated using the `droplet.txt` file in the `data` directory.
-- `<prefix>_<N>_size_distribution.txt`: Size distribution of the droplet with mean size `<N>`.
-- `<prefix>_evap.txt`: For each initial size in droplet distribution, we will have `alpha` parameter and number of remaining He atoms after absorption of `k` dopants.
-- `<prefix>_final_y.txt`: Final dopant distribution without taking droplet distribution into account. It would be the same as the `output.txt` file if you select the distribution type `NONE`.
-- `<prefix>_trajectory.arrow`: Binary file having dopant distribution at each RK4 step. To read this file in a pandas dataframe a simple python script is provided in `utils` directory.
+- `<output>/vcluster_ebe.txt`: Velocity and binding energy of He droplet for a certain size. It is interpolated using the `droplet.txt` file in the `data` directory.
+- `<output>/He_<N>_size_distribution.txt`: Size distribution of the droplet with mean size `<N>`.
+- `<output>_evap.txt`: For each initial size in droplet distribution, we will have `alpha` parameter and number of remaining He atoms after absorption of `k` dopants.
+- `<output>/final_y_<no>.txt`: Final dopant distribution without taking droplet distribution into account. It would be the same as the `output.txt` file if you select the distribution type `NONE`.
+- `<output>/trajectory_<no>.arrow`: Binary file having dopant distribution at each RK4 step. To read this file in a pandas dataframe a simple python script is provided in `utils` directory.

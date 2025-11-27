@@ -27,8 +27,8 @@ public:
      * dist_step: step size for distribution
      * dopant_name: name of the dopant
      * max_k: maximum no of dopants (just set something high)
-     * prefix: prefix for output files
-     * datadir: directory for output files
+     * output: directory for output files
+     * datadir: directory for data files
      */
     Droplet(
         const std::vector<std::size_t> mean_numbers,
@@ -36,7 +36,7 @@ public:
         const std::size_t dist_step,
         const std::string dopant_name,
         const std::size_t max_k,
-        const std::string prefix,
+        const std::string output,
         const std::string datadir
     );
     ~Droplet();
@@ -68,8 +68,8 @@ private:
     std::string m_type; // Distribution type for droplet
     std::size_t m_dist_step; // Distribution step size
     Dopant m_dopX; // Dopant
-    std::string m_prefix; // prefix for output files
-    std::string m_datadir; // directory for output files
+    std::string m_output; // directory for output files
+    std::string m_datadir; // directory for data files
 
     std::vector<double> m_vcluster; // velocity of droplet for certain droplet size
     std::vector<double> m_evap; // Binding energy of droplet for certain droplet size
