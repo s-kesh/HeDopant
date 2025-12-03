@@ -292,7 +292,7 @@ int main(int argc, char* argv[]) {
     std::ofstream nk_file(nk_name);
 
     std::print(k_file, "k\t");
-    std::print(nk_file, "k\t");
+    std::print(nk_file, "droplet_size\t");
     for (std::size_t n = 0; n < he_numbers.size(); n++) {
         std::print(k_file, "{}\t", he_numbers[n]);
         std::print(nk_file, "{}\t", he_numbers[n]);

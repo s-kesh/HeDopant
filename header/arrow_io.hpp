@@ -77,10 +77,9 @@ public:
         ARROW_THROW_NOT_OK(outer_list_builder.Append());
 
         // Column-major indexing: data[c * rows + r]
-        for (std::size_t r = 0; r < rows; r++) {
+        for (std::size_t c = 0; c < cols; c++) {
             ARROW_THROW_NOT_OK(inner_list_builder->Append());
-
-            for (std::size_t c = 0; c < cols; c++) {
+            for (std::size_t r = 0; r < rows; r++) {
                 ARROW_THROW_NOT_OK(value_builder->Append(data[c * rows + r]));
             }
         }

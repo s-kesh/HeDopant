@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <print>
 #include <fstream>
 
@@ -107,15 +108,6 @@ Droplet::Droplet(
             }
         }
 
-        // Save size distributions to a txt file
-        for (std::size_t n = 0; n < numbers.size(); n++) {
-            std::ofstream file(std::format("{}/He_{}_size_distribution.txt", m_output, numbers[n]));
-            std::println(file, "Index\tdroplet_size\tLognormal");
-            for (int i = 0; i < m_sizes.size(); i++) {
-                std::println(file, "{}\t{}\t{}", i, m_sizes[i], m_sizes_dist(i, n));
-            }
-        }
-
         // Resize alpha, diagonal
         // They are in Column Major order
         // ROWS -> sizes.size()
@@ -124,6 +116,23 @@ Droplet::Droplet(
         m_alpha.resize(max_k + 1, m_sizes.size());
     }
 
+    // Save size distributions to a txt file
+    std::ofstream file(std::format("{}/dist_N.txt", m_output));
+    std::print(file, "droplet_size");
+    for (std::size_t n = 0; n < numbers.size(); n++) {
+        std::print(file, "\t{}", numbers[n]);
+    }
+    std::print(file, "\n");
+
+    for (int i = 0; i < m_sizes.size(); i++) {
+        std::print(file, "{}", m_sizes[i]);
+        for (std::size_t n = 0; n < numbers.size(); n++) {
+            std::print(file, "\t{}", m_sizes_dist(i, n));
+        }
+        std::print(file, "\n");
+    }
+    file.close();
+
     auto interp = Interpolators(std::format("{}/droplet.txt", m_datadir));
     for (std::size_t i = 0; i < m_vcluster.size(); i++) {
         m_vcluster[i] = interp.V_cluster(i+1);
@@ -131,12 +140,12 @@ Droplet::Droplet(
     }
 
     // Save the calculated vcluster and evap values to a file
-    std::ofstream file(std::format("{}/vcluster_ebe.txt", m_output));
-    std::println(file, "droplet_size\tvelocity\tbinding_energy");
+    std::ofstream filev(std::format("{}/vcluster_ebe.txt", m_output));
+    std::println(filev, "droplet_size\tvelocity\tbinding_energy");
     for (std::size_t i = 0; i < max_mean_number+5; i++) {
-        std::println(file, "{}\t{}\t{}", i, m_vcluster[i], m_evap[i]);
+        std::println(filev, "{}\t{}\t{}", i, m_vcluster[i], m_evap[i]);
     }
-    file.close();
+    filev.close();
 
     _calculate_alpha(con1, con2, max_k);
 }
