@@ -39,26 +39,30 @@ __global__ void kernel_compute_dia(
     d[idx] = pressure * alpha[idx] * x_in[idx];
 }
 
-// Column-major layout: idx = i + j * N
+// Column-major layout
 __global__ void kernel_compute_diff(
     const double* __restrict__ d,
     double* __restrict__ x_out,
     const int N,
     const int K)
 {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int total = N * K;
-    if (idx >= total) return;
+    // Each block handle each column
+    int col = blockIdx.x;
+    if (col >= K) return;
 
-    // compute current are previous columns
-    int j = idx / N;
-    int idx_prev = idx - N;
+    int row = threadIdx.x;
+    if (row >= N) return;
 
-    if (j == 0) {
+    int idx = col * N + row;
+
+    // first row
+    if (row == 0) {
         x_out[idx] = -d[idx];
         return;
     }
-    x_out[idx] = d[idx_prev] - d[idx];
+
+    // All other rows
+    x_out[idx] = d[idx - 1] - d[idx];
 }
 
 void copy_device_host(double* dist, const double* src, const int size) {
@@ -110,8 +114,8 @@ void RK4Backend_CUDA::solve_ode(
     const double half_step = 0.5 * step_size;
     const double sixth_step = step / 6.0;
 
-    int threads_per_block = 256;
-    int blocks_per_grid = static_cast<int>((size + threads_per_block - 1) / threads_per_block);
+    int threads_per_block = rows;
+    int blocks_per_grid = cols;
 
     float progress = 0.0f;
     print_progress_bar(progress);

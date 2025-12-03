@@ -44,12 +44,10 @@ __kernel void kernel_compute_diff(
     int i = idx % N;      // row
     int j = idx / N;      // column
 
-    if (j == 0) { // column
+    if (i == 0) { // first row
         x_out[idx] = -d[idx];
     } else {
-        // idx_prev = row + (col-1)*N
-        int idx_prev = (i) + (j - 1) * N;
-        x_out[idx] = d[idx_prev] - d[idx];
+        x_out[idx] = d[idx - 1] - d[idx];
     }
 }
 )OPENCL_KERNEL";
@@ -112,7 +110,7 @@ void RK4Backend_OpenCL::solve_ode(
     const double sixth_step = step / 6.0;
 
     // Grid and Block setup
-    const size_t threads_per_block = 64;
+    const size_t threads_per_block = rows;
     const size_t global_size = (size + threads_per_block - 1) / threads_per_block * threads_per_block;
     cl::NDRange global(global_size);
     cl::NDRange local(threads_per_block);

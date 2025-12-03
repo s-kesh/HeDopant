@@ -82,8 +82,8 @@ Droplet::Droplet(
         }
 
         // Resize alpha, diagonal
-        m_N_k_vec.resize(m_numbers.size(), max_k + 1);
-        m_alpha.resize(m_numbers.size(), max_k + 1);
+        m_N_k_vec.resize(max_k+1, m_numbers.size());
+        m_alpha.resize(max_k+1, m_numbers.size());
     }
     else {
         m_vcluster.resize(12*max_mean_number);
@@ -120,8 +120,8 @@ Droplet::Droplet(
         // They are in Column Major order
         // ROWS -> sizes.size()
         // COLUMNS -> max_k + 1
-        m_N_k_vec.resize(m_sizes.size(), max_k + 1);
-        m_alpha.resize(m_sizes.size(), max_k + 1);
+        m_N_k_vec.resize(max_k + 1, m_sizes.size());
+        m_alpha.resize(max_k + 1, m_sizes.size());
     }
 
     auto interp = Interpolators(std::format("{}/droplet.txt", m_datadir));
@@ -163,8 +163,8 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
         std::size_t N_k = number;
         std::size_t N_old = number;
 
-        m_N_k_vec(i, 0) = N_k;
-        m_alpha(i, 0) = con1 * std::sqrt((v_cluster2 + v_x2)/ v_cluster2) * std::pow(N_k, 2.0/3.0);
+        m_N_k_vec(0, i) = N_k;
+        m_alpha(0, i) = con1 * std::sqrt((v_cluster2 + v_x2)/ v_cluster2) * std::pow(N_k, 2.0/3.0);
 
         for (std::size_t k = 1; k < max_k + 1; k++) {
             E_total = con2 + (0.5 * mass * v_cluster2);
@@ -173,9 +173,9 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
                 N_k = (std::size_t)(N_old - N_evap);
             else
                 N_k = 0;
-            m_N_k_vec(i, k) = N_k;
+            m_N_k_vec(k, i) = N_k;
             v_cluster2 = m_vcluster[N_k] * m_vcluster[N_k];
-            m_alpha(i, k) = con1 * std::sqrt((v_cluster2 + v_x2) / v_cluster2) * std::pow(N_k, 2.0/3.0);
+            m_alpha(k, i) = con1 * std::sqrt((v_cluster2 + v_x2) / v_cluster2) * std::pow(N_k, 2.0/3.0);
             N_old = N_k;
         }
     }
@@ -188,7 +188,7 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
         std::println(file, "For Initial size: {}", m_sizes[i]);
         std::println(file, "k\tN_k\talpha");
         for (std::size_t k = 0; k < max_k + 1; k++) {
-            std::println(file, "{}\t{}\t{}", k, m_N_k_vec(i, k), m_alpha(i, k));
+            std::println(file, "{}\t{}\t{}", k, m_N_k_vec(k, i), m_alpha(k, i));
         }
         std::println(file, "=========================");
     }
@@ -205,20 +205,20 @@ void Droplet::simulate(
     Eigen::MatrixXd& N_k_out
 ) {
 
-    Eigen::MatrixXd y(m_sizes.size(), y_out.cols());
+    Eigen::MatrixXd y(y_out.rows(), m_sizes.size());
 
     // Set Initial conditions
     y.fill(0);
-    y.col(0).setOnes();
+    y.row(0).setOnes();
 
     // initialize N_k
     Eigen::MatrixXd N_k;
     if (m_type != "NONE") {
         N_k.resize(m_sizes.size(), m_sizes.size());
-        N_k_out.resize(y_out.rows(), m_sizes.size());
+        N_k_out.resize(m_sizes.size(), y_out.cols());
     } else {
-        N_k.resize(m_sizes.size(), (max_mean_number/m_dist_step)+1);
-        N_k_out.resize(y_out.rows(), (max_mean_number/m_dist_step)+1);
+        N_k.resize((max_mean_number/m_dist_step)+1, m_sizes.size());
+        N_k_out.resize((max_mean_number/m_dist_step)+1, y_out.cols());
     }
 
     N_k.fill(0);
@@ -264,18 +264,18 @@ void Droplet::simulate(
         // Output in a text file
         std::ofstream filetxt_k(std::format("{}/final_k_{}.txt", m_output, i));
         std::ofstream filetxt_Nk(std::format("{}/final_Nk_{}.txt", m_output, i));
-        for (std::size_t i = 0; i < (std::size_t)y.rows(); i++) {
+        for (std::size_t i = 0; i < (std::size_t)y.cols(); i++) {
             std::println(filetxt_k,  "=========================");
             std::println(filetxt_Nk, "=========================");
             std::println(filetxt_k, "For Initial size: {}", m_sizes[i]);
             std::println(filetxt_Nk, "For Initial size: {}", m_sizes[i]);
             std::println(filetxt_k, "k\ty");
             std::println(filetxt_Nk, "N_k\ty");
-            for (std::size_t k = 0; k < (std::size_t)y.cols(); k++) {
-                std::println(filetxt_k, "{}\t{}", k, y(i, k));
+            for (std::size_t k = 0; k < (std::size_t)y.rows(); k++) {
+                std::println(filetxt_k, "{}\t{}", k, y(k, i));
             }
-            for (std::size_t nk = 0; nk < (std::size_t)N_k.cols(); nk++) {
-                std::println(filetxt_Nk, "{}\t{}", nk, N_k(i, nk));
+            for (std::size_t nk = 0; nk < (std::size_t)N_k.rows(); nk++) {
+                std::println(filetxt_Nk, "{}\t{}", nk, N_k(nk, i));
             }
             std::println(filetxt_k,  "=========================");
             std::println(filetxt_Nk, "=========================");
@@ -292,12 +292,9 @@ void Droplet::simulate(
     }
     else {
         // Now multiple y with size distribution
-        // shape[k] = shape[Nxk].T shape[N]
-
-        for (int n = 0; n < y_out.rows(); n++) {
-            y_out.row(n) = y.transpose() * m_sizes_dist.col(n);
-            N_k_out.row(n) = N_k.transpose() * m_sizes_dist.col(n);
-        }
+        // shape[k] = shape[kxN] shape[N]
+        y_out.noalias() = y * m_sizes_dist;
+        N_k_out.noalias() = N_k * m_sizes_dist;
     }
 }
 
@@ -308,10 +305,10 @@ void Droplet::_calculate_nk_distribution(
 {
     int rows = Ik.rows();
     int cols = Ik.cols();
-    for (int k = 0; k < cols; k++) {
-        for (int i = 0; i < rows; i++) {
-            int initial_size = m_N_k_vec(i, k);
-            Nk(i, initial_size/m_dist_step) += Ik(i, k);
+    for (int i = 0; i < cols; i++) {
+        for (int k = 0; k < rows; k++) {
+            int initial_size = m_N_k_vec(k, i);
+            Nk(initial_size/m_dist_step, i) += Ik(k, i);
         }
     }
 }

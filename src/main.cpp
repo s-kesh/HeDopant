@@ -258,9 +258,9 @@ int main(int argc, char* argv[]) {
 
     // To keep state of intensities
     // one vector for each mean_size
-    Eigen::MatrixXd I_k_matrix(he_numbers.size(), max_k+1);
+    Eigen::MatrixXd I_k_matrix(max_k+1, he_numbers.size());
     std::size_t max_size = *std::max_element(he_numbers.begin(), he_numbers.end());
-    Eigen::MatrixXd N_k_matrix(he_numbers.size(), max_size);
+    Eigen::MatrixXd N_k_matrix(max_size, he_numbers.size());
 
     // Define the Droplet object
     Droplet helium(
@@ -303,31 +303,32 @@ int main(int argc, char* argv[]) {
     for (std::size_t k = 0; k < max_k; k++) {
         std::print(k_file, "{}\t", k);
         for (std::size_t n = 0; n < he_numbers.size(); n++) {
-            std::print(k_file, "{}\t", I_k_matrix(n, k));
+            std::print(k_file, "{}\t", I_k_matrix(k, n));
         }
         std::print(k_file, "\n");
     }
 
-    for (int nk = 0; nk < N_k_matrix.cols(); nk++) {
+    for (int nk = 0; nk < N_k_matrix.rows(); nk++) {
         std::print(nk_file, "{}\t", dist_step*nk);
         for (std::size_t n = 0; n < he_numbers.size(); n++) {
-            std::print(nk_file, "{}\t", N_k_matrix(n, nk));
+            std::print(nk_file, "{}\t", N_k_matrix(nk, n));
         }
         std::print(nk_file, "\n");
     }
 
-
     // Lets calculate the mean dopant size for distributions
+    double num = 0;
+    double den = 0;
+    Eigen::VectorXd dopant_sizes = Eigen::VectorXd::LinSpaced(I_k_matrix.rows(), 0, I_k_matrix.rows());
+    Eigen::VectorXd droplet_sizes = Eigen::VectorXd::LinSpaced(N_k_matrix.rows(), 0, dist_step*N_k_matrix.rows());
     for (std::size_t n = 0; n < he_numbers.size(); n++) {
-        Eigen::VectorXd dopant_sizes = Eigen::VectorXd::LinSpaced(I_k_matrix.cols(), 0, I_k_matrix.cols());
-        double num = I_k_matrix.row(n).dot(dopant_sizes);
-        double den = I_k_matrix.row(n).sum();
+        num = I_k_matrix.col(n).dot(dopant_sizes);
+        den = I_k_matrix.col(n).sum();
         std::println("Mean dopant size for distribution {} is {}", he_numbers[n], num / den);
 
-        Eigen::VectorXd droplet_sizes = Eigen::VectorXd::LinSpaced(N_k_matrix.cols(), 0, dist_step*N_k_matrix.cols());
-        N_k_matrix.col(0).setZero();
-        num = droplet_sizes.dot(N_k_matrix.row(n));
-        den = N_k_matrix.row(n).sum();
+        N_k_matrix.row(0).setZero();
+        num = N_k_matrix.col(n).dot(droplet_sizes);
+        den = N_k_matrix.col(n).sum();
         std::println("Mean droplet size after doping for distribution {} is {}", he_numbers[n], num / den);
     }
 

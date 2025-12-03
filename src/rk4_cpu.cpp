@@ -23,11 +23,11 @@ void RK4Backend_CPU::_fun(
 
     diag = pressure * alpha.array() * x.array();
 
-    x.block(0, 1, x.rows(), x.cols() - 1).noalias() =
-        diag.block(0, 0, diag.rows(), diag.cols() - 1) -
-        diag.block(0, 1, diag.rows(), diag.cols() - 1);
+    x.block(1, 0, x.rows() - 1, x.cols()).noalias() =
+        diag.block(0, 0, diag.rows() - 1, diag.cols()) -
+        diag.block(1, 0, diag.rows() - 1, diag.cols());
 
-    x.col(0).noalias() = -diag.col(0);
+    x.row(0).noalias() = -diag.row(0);
 }
 
 
