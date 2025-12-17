@@ -1,4 +1,4 @@
-#include "rk4_gpu.hpp"
+#include "rk4_cuda.hpp"
 
 #include "arrow_io.hpp"
 
@@ -39,27 +39,30 @@ __global__ void kernel_compute_dia(
     d[idx] = pressure * alpha[idx] * x_in[idx];
 }
 
-// Column-major layout: idx = i + j * N
+// Column-major layout
 __global__ void kernel_compute_diff(
     const double* __restrict__ d,
     double* __restrict__ x_out,
     const int N,
     const int K)
 {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int total = N * K;
-    if (idx >= total) return;
+    // Each block handle each column
+    int col = blockIdx.x;
+    if (col >= K) return;
 
-    int i = idx % N;     // row
-    int j = idx / N;     // column
+    int row = threadIdx.x;
+    if (row >= N) return;
 
-    if (idx/N == 0) { // column
+    int idx = col * N + row;
+
+    // first row
+    if (row == 0) {
         x_out[idx] = -d[idx];
-    } else {
-        // idx_prev = row + (col-1)*N
-        int idx_prev = (i) + (j - 1) * N;
-        x_out[idx] = d[idx_prev] - d[idx];
+        return;
     }
+
+    // All other rows
+    x_out[idx] = d[idx - 1] - d[idx];
 }
 
 void copy_device_host(double* dist, const double* src, const int size) {
@@ -70,7 +73,7 @@ void copy_device_host(double* dist, const double* src, const int size) {
     std::cout << std::endl;
 }
 
-void RK4Backend_GPU::solve_ode(
+void RK4Backend_CUDA::solve_ode(
     const std::size_t number_of_steps,
     const double step_size,
     const double pressure,
@@ -111,15 +114,15 @@ void RK4Backend_GPU::solve_ode(
     const double half_step = 0.5 * step_size;
     const double sixth_step = step / 6.0;
 
-    int threads_per_block = 64;
-    int blocks_per_grid = static_cast<int>((size + threads_per_block - 1) / threads_per_block);
+    int threads_per_block = rows;
+    int blocks_per_grid = cols;
 
     float progress = 0.0f;
     print_progress_bar(progress);
 
     for (std::size_t step_idx = 0; step_idx < number_of_steps; ++step_idx) {
 
-        // ---------- k1 ----------
+        // k1
         // d_temp = y
         CUBLAS_CHECK(cublasDcopy(handle, size, d_y, 1, d_temp, 1));
 
@@ -134,7 +137,7 @@ void RK4Backend_GPU::solve_ode(
         // kfinal = k1
         CUBLAS_CHECK(cublasDcopy(handle, size, d_temp, 1, d_kfinal, 1));
 
-        // ---------- k2 ----------
+        // k2
         // d_temp = d_temp * (h/2)
         CUBLAS_CHECK(cublasDscal(handle, size, &half_step, d_temp, 1));
         // d_temp = d_temp + y       -> now d_temp = y + h/2 * k1
@@ -149,7 +152,7 @@ void RK4Backend_GPU::solve_ode(
         // kfinal += 2 * k2
         CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp, 1, d_kfinal, 1));
 
-        // ---------- k3 ----------
+        // k3
         // d_temp = d_temp * (h/2)
         CUBLAS_CHECK(cublasDscal(handle, size, &half_step, d_temp, 1));
         // d_temp = d_temp + y      -> now d_temp = y + h/2 * k2
@@ -164,7 +167,7 @@ void RK4Backend_GPU::solve_ode(
         // kfinal += 2 * k3  (d_temp holds k3)
         CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp, 1, d_kfinal, 1));
 
-        // ---------- k4 ----------
+        // k4
         // d_temp = d_temp * h
         CUBLAS_CHECK(cublasDscal(handle, size, &step, d_temp, 1));
         // d_temp = d_temp + y   -> now d_temp = y + h * k3
@@ -179,7 +182,6 @@ void RK4Backend_GPU::solve_ode(
         // kfinal += k4  (d_temp holds k4)
         CUBLAS_CHECK(cublasDaxpy(handle, size, &one, d_temp, 1, d_kfinal, 1));
 
-        // ---------- update y ----------
         // y = y + (h/6) * kfinal
         CUBLAS_CHECK(cublasDaxpy(handle, size, &sixth_step, d_kfinal, 1, d_y, 1));
 

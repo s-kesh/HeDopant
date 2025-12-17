@@ -9,7 +9,8 @@ project(
   ],
 )
 
-# Determine build-type flags
+backend_opt = get_option('rk4backend')
+
 bt = get_option('buildtype')
 if bt == 'debugoptimized'
   add_project_arguments(['-pg'], language: 'cpp')
@@ -24,9 +25,7 @@ yaml_dep = dependency('yaml-cpp')
 arrow_dep = dependency('arrow')
 eigen_dep = dependency('eigen3')
 
-# GPU options
-gpu_opt = get_option('gpu')
-
+# CUDA Dependencies
 cuda_dep = dependency(
   'cuda',
   version: '>12.0',
@@ -34,47 +33,67 @@ cuda_dep = dependency(
   modules: ['cublas'],
 )
 
-has_gpu = true
-
-if gpu_opt == 'disabled'
-  message('GPU support explicitly disabled by user.')
-elif gpu_opt == 'enabled'
-  if cuda_dep.found()
-    has_gpu = true
-    message('GPU support explicitly enabled.')
-  else
-    error('GPU was forced enabled (-Dgpu=enabled) but CUDA was not found!')
-  endif
-else
-  # auto
-  if cuda_dep.found()
-    has_gpu = true
-    message('CUDA detected. GPU enabled (auto mode).')
-  else
-    message('CUDA not found. GPU disabled (auto mode).')
-  endif
-endif
-# ------------------------------------
-
-# Source files
-srcs = files(
-  'src/droplet.cpp',
-  'src/interpolate.cpp',
-  'src/main.cpp',
-  'src/rk4_cpu.cpp',
+opencl_dep = dependency(
+  'OpenCL',
+  required: false,
 )
+clblast_dep = dependency(
+  'clblast',
+  required: false,
+)
+
+# Default to CPU.
+selected_backend = 'cpu'
+
+if backend_opt == 'cuda'
+  if cuda_dep.found()
+    selected_backend = 'cuda'
+    message('CUDA backend explicitly selected.')
+  else
+    error('CUDA backend was forced but dependencies (CUDA/cuBLAS) were not found.')
+  endif
+elif backend_opt == 'opencl'
+  if opencl_dep.found() and clblast_dep.found()
+    selected_backend = 'opencl'
+    message('OpenCL backend explicitly selected.')
+  else
+    error(
+      'OpenCL backend was forced but dependencies (OpenCL/CLBlast) were not found.',
+    )
+  endif
+elif backend_opt == 'auto'
+  if cuda_dep.found()
+    selected_backend = 'cuda'
+    message('CUDA detected. Backend set to CUDA (auto mode).')
+  elif opencl_dep.found() and clblast_dep.found()
+    selected_backend = 'opencl'
+    message('OpenCL/CLBlast detected. Backend set to OpenCL (auto mode).')
+  else
+    message('No accelerator detected. Backend set to CPU (auto mode).')
+  endif
+elif backend_opt == 'cpu'
+  message('CPU backend explicitly selected.')
+endif
+
+# Base source files
+srcs = files('src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp', 'src/rk4_cpu.cpp')
 
 project_dependencies = [yaml_dep, arrow_dep, eigen_dep]
 
-# Conditionally add GPU source and define flag
-if has_gpu
+if selected_backend == 'cuda'
   add_languages('cuda')
-  srcs += files('src/rk4_gpu.cu')
-  add_project_arguments(['-DRK4_HAS_GPU'], language: 'cpp')
+  add_project_arguments(['-DRK4_HAS_GPU', '-DRK4_BACKEND_CUDA'], language: 'cpp')
+  srcs += files('src/rk4_cuda.cu')
   project_dependencies += [cuda_dep]
+
+elif selected_backend == 'opencl'
+  add_project_arguments(['-DRK4_HAS_GPU', '-DRK4_BACKEND_OPENCL'], language: 'cpp')
+  srcs += files('src/rk4_opencl.cpp')
+  project_dependencies += [opencl_dep, clblast_dep]
 endif
 
-# Build executable
+# Build Executable
+
 executable(
   'HeDopant',
   srcs,

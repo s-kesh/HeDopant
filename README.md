@@ -6,7 +6,7 @@ HeDopant is a simulation tool for modeling the evolution of dopant cluster-size 
 
 ## Features
 
-- **Flexible Backend**: Supports both CPU and GPU (via CUDA) for RK4 solver.
+- **Flexible Backend**: Supports both CPU and GPU (via CUDA or OpenCL) for RK4 solver.
 - **Configuration**: Allow configuration through a simple YAML file, but allow overriding the configuration options using the command line. A sample YAML file is provided in the `data` folder.
 - **Dopant Support**: Dopant species are configured using YAML files provided in the `data` folder. Just add your own dopant YAML file and specify it in config.yaml.
 - **Output**: Final distribution of dopant size would be written on the computer. By configuring the flag `trajectory` to `true`, the distribution would be saved at each RK4 step.
@@ -20,7 +20,7 @@ This project uses Meson Build System.
 - C++23 compiler (e.g., `g++`)  
 - CUDA (for GPU support)
 - [Meson](https://mesonbuild.com/) build system  
-- Dependencies: `eigen`, `yaml-cpp`, `arrow`
+- Dependencies: `eigen`, `yaml-cpp`, `arrow.`
 
 ```bash
 meson setup build
@@ -67,14 +67,14 @@ You can override any configuration option at the command line.
 
 ## Output
 
-The prefix of output files can be controlled either by setting the option `output` in the config file or by the command line option `--output <prefix>`.
+The directory of output files can be controlled either by setting the option `output` in the config file or by the command line option `--output <output>`.
 
-The evolved distribution would be saved as `<prefix>_<pressure>_mbar_output.txt`.
+The evolved distribution would be saved as `<output>/dist_k.txt` and `<output>/dist_Nk.txt`.
 
 A few additional output files will also be generated to ensure everything is working smoothly.
 
-- `<prefix>_vcluster_ebe.txt`: Velocity and binding energy of He droplet for a certain size. It is interpolated using the `droplet.txt` file in the `data` directory.
-- `<prefix>_<N>_size_distribution.txt`: Size distribution of the droplet with mean size `<N>`.
-- `<prefix>_evap.txt`: For each initial size in droplet distribution, we will have `alpha` parameter and number of remaining He atoms after absorption of `k` dopants.
-- `<prefix>_final_y.txt`: Final dopant distribution without taking droplet distribution into account. It would be the same as the `output.txt` file if you select the distribution type `NONE`.
-- `<prefix>_trajectory.arrow`: Binary file having dopant distribution at each RK4 step. To read this file in a pandas dataframe a simple python script is provided in `utils` directory.
+- `<output>/vcluster_ebe.txt`: Velocity and binding energy of He droplet for a certain size. It is interpolated using the `droplet.txt` file in the `data` directory.
+- `<output>/He_<N>_size_distribution.txt`: Size distribution of the droplet with mean size `<N>`.
+- `<output>_evap.txt`: For each initial size in droplet distribution, we will have `alpha` parameter and number of remaining He atoms after absorption of `k` dopants.
+- `<output>/final_y_<no>.txt`: Final dopant distribution without taking droplet distribution into account. It would be the same as the `output.txt` file if you select the distribution type `NONE`.
+- `<output>/trajectory_<no>.arrow`: Binary file having dopant distribution at each RK4 step. To read this file in a pandas dataframe a simple python script is provided in `utils` directory.
