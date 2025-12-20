@@ -68,7 +68,19 @@ Droplet::Droplet(
     m_dopX(dopant_name, datadir), m_output(outdir), m_datadir(datadir)
 {
     double con1 = (1.0 / constants::kB / m_dopX.temprature()) * 4.0 * constants::pi * constants::he_density * constants::he_density;
-    double con2 = m_dopX.e_Int() + (1.5 * constants::kB * m_dopX.temprature()) + (m_dopX.e_He_X() + m_dopX.e_X_X())*constants::e;
+    double con2 = m_dopX.e_Int() + (1.5 * constants::kB * m_dopX.temprature()) + (m_dopX.e_He_X() + m_dopX.e_X_X());
+
+    // This print is used to verify that:
+    //   1) The correct dopant YAML file is loaded,
+    //   2) The numerical values of the energies are reasonable,
+    //   3) No extra or missing conversion by the electron charge (e) occurs,
+    //   4) con2 actually includes the intended physical contributions.
+
+    std::println(
+      "DEBUG energies [J]: E_Int={}  E_HeX={}  E_XX={}  con2={}",
+      m_dopX.e_Int(), m_dopX.e_He_X(), m_dopX.e_X_X(), con2
+  );
+
 
     max_mean_number = *std::max_element(numbers.begin(), numbers.end());
 
