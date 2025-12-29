@@ -22,8 +22,13 @@ inc = include_directories('header')
 
 # Dependencies
 yaml_dep = dependency('yaml-cpp')
-arrow_dep = dependency('arrow')
 eigen_dep = dependency('eigen3')
+project_dependencies = [yaml_dep, eigen_dep]
+
+arrow_dep = dependency(
+  'arrow',
+  required: false,
+)
 
 # CUDA Dependencies
 cuda_dep = dependency(
@@ -78,7 +83,10 @@ endif
 # Base source files
 srcs = files('src/droplet.cpp', 'src/interpolate.cpp', 'src/main.cpp', 'src/rk4_cpu.cpp')
 
-project_dependencies = [yaml_dep, arrow_dep, eigen_dep]
+if arrow_dep.found()
+  add_project_arguments(['-DHAS_ARROW'], language: 'cpp')
+  project_dependencies += [arrow_dep]
+endif
 
 if selected_backend == 'cuda'
   add_languages('cuda')

@@ -1,6 +1,9 @@
 #include "rk4_opencl.hpp"
 #include "opencl_context.hpp"
+
+#ifdef HAS_ARROW
 #include "arrow_io.hpp"
+#endif
 
 #include <iostream>
 #include <clblast.h>
@@ -74,9 +77,15 @@ void RK4Backend_OpenCL::solve_ode(
     double *y
 ) {
     const int size = rows * cols;
+
+    #ifdef HAS_ARROW
     ArrowIO arrow_io(output_file);
+    #endif
+
     if (trajectory) {
+        #ifdef HAS_ARROW
         arrow_io.write_step(0, rows, cols, y);
+        #endif
     }
 
     OpenCLContext cl_ctx(rk4_kernels_source);
@@ -265,12 +274,18 @@ void RK4Backend_OpenCL::solve_ode(
         if (trajectory) {
             // copy back current y (bytes)
             CL_CHECK(queue.enqueueReadBuffer(d_y, CL_TRUE, 0, size * sizeof(double), y));
+            #ifdef HAS_ARROW
             arrow_io.write_step(step_idx + 1, rows, cols, y);
+            #endif
         }
     }
 
     print_progress_bar(1.0f);
     std::cout << std::endl;
+
+    #ifdef HAS_ARROW
+    arrow_io.close()
+    #endif
 
     // Move data back to host
     CL_CHECK(queue.enqueueReadBuffer(d_y, CL_TRUE, 0, size * sizeof(double), y));
