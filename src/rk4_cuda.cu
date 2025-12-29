@@ -1,6 +1,8 @@
 #include "rk4_cuda.hpp"
 
+#ifdef HAS_ARROW
 #include "arrow_io.hpp"
+#endif
 
 #include <cstdlib>
 #include <iostream>
@@ -86,9 +88,14 @@ void RK4Backend_CUDA::solve_ode(
 ) {
 
     const int size = rows * cols;
+    #ifdef HAS_ARROW
     ArrowIO arrow_io(output_file);
+    #endif
+
     if (trajectory) {
+        #ifdef HAS_ARROW
         arrow_io.write_step(0, rows, cols, y);
+        #endif
     }
 
     double *d_y = nullptr, *d_alpha = nullptr, *d_temp = nullptr, *d_dia = nullptr, *d_kfinal = nullptr;
@@ -194,12 +201,18 @@ void RK4Backend_CUDA::solve_ode(
         if (trajectory) {
             // copy back current y (bytes)
             CUDA_CHECK(cudaMemcpy(y, d_y, size * sizeof(double), cudaMemcpyDeviceToHost));
+            #ifdef HAS_ARROW
             arrow_io.write_step(step_idx + 1, rows, cols, y);
+            #endif
         }
     }
 
     print_progress_bar(1.0f);
     std::cout << std::endl;
+
+    #ifdef HAS_ARROW
+    arrow_io.close();
+    #endif
 
     // Move data back to host (bytes)
     CUDA_CHECK(cudaMemcpy(y, d_y, size * sizeof(double), cudaMemcpyDeviceToHost));

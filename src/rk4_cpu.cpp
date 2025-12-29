@@ -1,5 +1,9 @@
 #include "rk4_cpu.hpp"
+
+#ifdef HAS_ARROW
 #include "arrow_io.hpp"
+#endif
+
 
 #include <Eigen/Dense>
 
@@ -48,10 +52,14 @@ void RK4Backend_CPU::solve_ode(
     Eigen::Map<const Eigen::MatrixXd> alpha(alpha_raw, rows, cols);
 
     float progress = 0.0f;
+    #ifdef HAS_ARROW
     ArrowIO arrow_io(output_file);
+    #endif
 
     if (trajectory) {
+        #ifdef HAS_ARROW
         arrow_io.write_step(0, y.rows(), y.cols(), y.data());
+        #endif
     }
 
     print_progress_bar(progress);
@@ -85,11 +93,15 @@ void RK4Backend_CPU::solve_ode(
         if (100*i % number_of_steps == 0) print_progress_bar(progress);
 
         if (trajectory) {
-             arrow_io.write_step(i + 1, y.rows(), y.cols(), y.data());
+            #ifdef HAS_ARROW
+            arrow_io.write_step(i + 1, y.rows(), y.cols(), y.data());
+            #endif
         }
     }
     print_progress_bar(1.0);
     std::cout << std::endl;
 
+    #ifdef HAS_ARROW
     arrow_io.close();
+    #endif
 }
