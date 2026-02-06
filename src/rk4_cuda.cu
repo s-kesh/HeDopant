@@ -29,42 +29,43 @@
         } \
     } while (0)
 
-__global__ void kernel_compute_dia(
+// Computes (pressure * alpha * y)_prev - (pressure * alpha * y)_curr
+__global__ void kernel_compute(
     const double pressure,
     const double* __restrict__ alpha,
-    const double* __restrict__ x_in,
-    double* __restrict__ d,
-    const int total)
+    const double* __restrict__ y,
+    const double* __restrict__ k_prev,
+    const double scale,
+    double* __restrict__ k_out,
+    const bool k1_flag,
+    const double weight,
+    double* __restrict__ k_sum,
+    const int rows,
+    const int cols)
 {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= total) return;
-    d[idx] = pressure * alpha[idx] * x_in[idx];
-}
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
 
-// Column-major layout
-__global__ void kernel_compute_diff(
-    const double* __restrict__ d,
-    double* __restrict__ x_out,
-    const int N,
-    const int K)
-{
-    // Each block handle each column
-    int col = blockIdx.x;
-    if (col >= K) return;
+    if (row < rows && col < cols) {
+        int idx = col * rows + row;
+        double curr = y[idx];
+        if (scale != 0.0) curr += scale * k_prev[idx];
+        double val_curr = pressure * alpha[idx] * curr;
+        if (row == 0) {
+            k_out[idx] = -val_curr;
+        } else {
+            double prev = y[idx - 1];
+            if (scale != 0.0) prev += scale * k_prev[idx - 1];
+            double val_prev = pressure * alpha[idx - 1] * prev;
+            k_out[idx] = val_prev - val_curr;
+        }
 
-    int row = threadIdx.x;
-    if (row >= N) return;
-
-    int idx = col * N + row;
-
-    // first row
-    if (row == 0) {
-        x_out[idx] = -d[idx];
-        return;
+        if (k1_flag) {
+            k_sum[idx] = k_out[idx];
+        } else {
+            k_sum[idx] += weight * k_out[idx];
+        }
     }
-
-    // All other rows
-    x_out[idx] = d[idx - 1] - d[idx];
 }
 
 void copy_device_host(double* dist, const double* src, const int size) {
@@ -98,13 +99,13 @@ void RK4Backend_CUDA::solve_ode(
         #endif
     }
 
-    double *d_y = nullptr, *d_alpha = nullptr, *d_temp = nullptr, *d_dia = nullptr, *d_kfinal = nullptr;
+    double *d_y = nullptr, *d_alpha = nullptr, *d_temp1 = nullptr, *d_temp2 = nullptr, *d_kfinal = nullptr;
 
     // allocate device memory
     CUDA_CHECK(cudaMalloc(&d_y, size * sizeof(double)));
     CUDA_CHECK(cudaMalloc(&d_alpha, size * sizeof(double)));
-    CUDA_CHECK(cudaMalloc(&d_temp, size * sizeof(double)));
-    CUDA_CHECK(cudaMalloc(&d_dia, size * sizeof(double)));
+    CUDA_CHECK(cudaMalloc(&d_temp1, size * sizeof(double)));
+    CUDA_CHECK(cudaMalloc(&d_temp2, size * sizeof(double)));
     CUDA_CHECK(cudaMalloc(&d_kfinal, size * sizeof(double)));
 
     // copy host arrays to device
@@ -121,93 +122,62 @@ void RK4Backend_CUDA::solve_ode(
     const double half_step = 0.5 * step_size;
     const double sixth_step = step / 6.0;
 
-    int threads_per_block = rows;
-    int blocks_per_grid = cols;
+    // Launch Config
+    const int threads_per_block = 256;
 
-    float progress = 0.0f;
-    print_progress_bar(progress);
+    dim3 block(threads_per_block, 1);
+    dim3 grid((rows + threads_per_block - 1) / threads_per_block, cols);
+
+    // Debug
+    std::cout << "Matrix Rows " << rows << " and Columns " << cols << std::endl;
+
+    print_progress_bar(0, number_of_steps);
 
     for (std::size_t step_idx = 0; step_idx < number_of_steps; ++step_idx) {
 
-        // k1
-        // d_temp = y
-        CUBLAS_CHECK(cublasDcopy(handle, size, d_y, 1, d_temp, 1));
-
-        // d_dia = pressure * alpha * d_temp
-        kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
+        // k1 = f(y)
+        kernel_compute<<<grid, block>>>(pressure, d_alpha, d_y, nullptr, 0.0, d_temp1, true, 0.0, d_kfinal, rows, cols);
         CUDA_CHECK(cudaGetLastError());
+        // CUBLAS_CHECK(cublasDcopy(handle, size, d_temp1, 1, d_kfinal, 1));
 
-        // d_temp = compute_diff(d_dia) = k1
-        kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
+        // k2 = f( y + h/2 * k1)
+        kernel_compute<<<grid, block>>>(pressure, d_alpha, d_y, d_temp1, half_step, d_temp2, false, two, d_kfinal, rows, cols);
         CUDA_CHECK(cudaGetLastError());
+        // CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp2, 1, d_kfinal, 1));
 
-        // kfinal = k1
-        CUBLAS_CHECK(cublasDcopy(handle, size, d_temp, 1, d_kfinal, 1));
-
-        // k2
-        // d_temp = d_temp * (h/2)
-        CUBLAS_CHECK(cublasDscal(handle, size, &half_step, d_temp, 1));
-        // d_temp = d_temp + y       -> now d_temp = y + h/2 * k1
-        CUBLAS_CHECK(cublasDaxpy(handle, size, &one, d_y, 1, d_temp, 1));
-
-        kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
+        // k3 = f(y + h/2 * k2)
+        kernel_compute<<<grid, block>>>(pressure, d_alpha, d_y, d_temp2, half_step, d_temp1, false, two, d_kfinal, rows, cols);
         CUDA_CHECK(cudaGetLastError());
+        // CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp1, 1, d_kfinal, 1));
 
-        kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
+        // k4 = f(y + h * k3)
+        kernel_compute<<<grid, block>>>(pressure, d_alpha, d_y, d_temp1, step, d_temp2, false, one, d_kfinal, rows, cols);
         CUDA_CHECK(cudaGetLastError());
-
-        // kfinal += 2 * k2
-        CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp, 1, d_kfinal, 1));
-
-        // k3
-        // d_temp = d_temp * (h/2)
-        CUBLAS_CHECK(cublasDscal(handle, size, &half_step, d_temp, 1));
-        // d_temp = d_temp + y      -> now d_temp = y + h/2 * k2
-        CUBLAS_CHECK(cublasDaxpy(handle, size, &one, d_y, 1, d_temp, 1));
-
-        kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
-        CUDA_CHECK(cudaGetLastError());
-
-        kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
-        CUDA_CHECK(cudaGetLastError());
-
-        // kfinal += 2 * k3  (d_temp holds k3)
-        CUBLAS_CHECK(cublasDaxpy(handle, size, &two, d_temp, 1, d_kfinal, 1));
-
-        // k4
-        // d_temp = d_temp * h
-        CUBLAS_CHECK(cublasDscal(handle, size, &step, d_temp, 1));
-        // d_temp = d_temp + y   -> now d_temp = y + h * k3
-        CUBLAS_CHECK(cublasDaxpy(handle, size, &one, d_y, 1, d_temp, 1));
-
-        kernel_compute_dia<<<blocks_per_grid, threads_per_block>>>(pressure, d_alpha, d_temp, d_dia, size);
-        CUDA_CHECK(cudaGetLastError());
-
-        kernel_compute_diff<<<blocks_per_grid, threads_per_block>>>(d_dia, d_temp, rows, cols);
-        CUDA_CHECK(cudaGetLastError());
-
-        // kfinal += k4  (d_temp holds k4)
-        CUBLAS_CHECK(cublasDaxpy(handle, size, &one, d_temp, 1, d_kfinal, 1));
+        // CUBLAS_CHECK(cublasDaxpy(handle, size, &one, d_temp2, 1, d_kfinal, 1));
 
         // y = y + (h/6) * kfinal
         CUBLAS_CHECK(cublasDaxpy(handle, size, &sixth_step, d_kfinal, 1, d_y, 1));
 
         // progress
-        progress = static_cast<float>(step_idx + 1) / static_cast<float>(number_of_steps);
-        if ((step_idx + 1) % (std::max<std::size_t>(1, number_of_steps / 100)) == 0) {
-            print_progress_bar(progress);
-        }
+        // progress = static_cast<float>(step_idx + 1) / static_cast<float>(number_of_steps);
+        // if ((step_idx + 1) % (std::max<std::size_t>(1, number_of_steps / 100)) == 0) {
+        //     print_progress_bar(progress);
+        // }
+        // if ((step_idx + 1) % (std::max<std::size_t>(1, number_of_steps / 1000)) == 0)
+            print_progress_bar(step_idx + 1, number_of_steps);
 
+        #ifdef HAS_ARROW
         if (trajectory) {
             // copy back current y (bytes)
             CUDA_CHECK(cudaMemcpy(y, d_y, size * sizeof(double), cudaMemcpyDeviceToHost));
-            #ifdef HAS_ARROW
             arrow_io.write_step(step_idx + 1, rows, cols, y);
-            #endif
         }
+        #endif
     }
 
-    print_progress_bar(1.0f);
+    // print_progress_bar(1.0f);
+
+    print_progress_bar(number_of_steps, number_of_steps);
     std::cout << std::endl;
 
     #ifdef HAS_ARROW
@@ -219,9 +189,9 @@ void RK4Backend_CUDA::solve_ode(
 
     // Free device memory and destroy handle
     CUDA_CHECK(cudaFree(d_y));
-    CUDA_CHECK(cudaFree(d_temp));
+    CUDA_CHECK(cudaFree(d_temp1));
     CUDA_CHECK(cudaFree(d_kfinal));
-    CUDA_CHECK(cudaFree(d_dia));
+    CUDA_CHECK(cudaFree(d_temp2));
     CUDA_CHECK(cudaFree(d_alpha));
 
     CUBLAS_CHECK(cublasDestroy(handle));

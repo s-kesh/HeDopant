@@ -4,8 +4,6 @@
 #include <yaml-cpp/yaml.h>
 #include <format>
 
-#include "constants.hpp"
-
 /*
  * Dopant class
  * Represents the properties of dopant in He droplet
@@ -46,9 +44,9 @@ public:
             m_temprature = config["temprature"].as<double>();
             m_mass       = config["mass"].as<double>();
             m_velocity   = config["velocity"].as<double>();
-            m_e_Int      = config["E_Int"].as<double>()*constants::e;
-            m_e_He_X     = config["E_He_X"].as<double>()*constants::e;
-            m_e_X_X      = config["E_X_X"].as<double>()*constants::e;
+            m_e_Int      = config["E_Int"].as<double>();
+            m_e_He_X     = config["E_He_X"].as<double>();
+            m_e_X_X      = config["E_X_X"].as<double>();
         } catch (const std::exception& e) {
             throw std::runtime_error("Error: Missing or invalid fields in " +
                                         filename + ": " + e.what());

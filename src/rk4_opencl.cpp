@@ -124,8 +124,10 @@ void RK4Backend_OpenCL::solve_ode(
     cl::NDRange global(global_size);
     cl::NDRange local(threads_per_block);
 
-    float progress = 0.0f;
-    print_progress_bar(progress);
+    // float progress = 0.0f;
+    // print_progress_bar(progress);
+
+    print_progress_bar(0, number_of_steps);
 
     // CLBlast setup
     clblast::StatusCode clblas_status;
@@ -266,10 +268,12 @@ void RK4Backend_OpenCL::solve_ode(
         event.wait();
 
         // progress
-        progress = static_cast<float>(step_idx + 1) / static_cast<float>(number_of_steps);
-        if ((step_idx + 1) % (std::max<std::size_t>(1, number_of_steps / 100)) == 0) {
-            print_progress_bar(progress);
-        }
+        // progress = static_cast<float>(step_idx + 1) / static_cast<float>(number_of_steps);
+        // if ((step_idx + 1) % (std::max<std::size_t>(1, number_of_steps / 100)) == 0) {
+        //     print_progress_bar(progress);
+        // }
+
+        print_progress_bar(step_idx + 1, number_of_steps);
 
         if (trajectory) {
             // copy back current y (bytes)
@@ -280,11 +284,13 @@ void RK4Backend_OpenCL::solve_ode(
         }
     }
 
-    print_progress_bar(1.0f);
+    // print_progress_bar(1.0f);
+
+    print_progress_bar(number_of_steps, number_of_steps);
     std::cout << std::endl;
 
     #ifdef HAS_ARROW
-    arrow_io.close()
+    arrow_io.close();
     #endif
 
     // Move data back to host

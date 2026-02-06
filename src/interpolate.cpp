@@ -1,4 +1,5 @@
 #include "interpolate.hpp"
+#include "constants.hpp"
 #include <fstream>
 #include <iostream>
 
@@ -73,7 +74,7 @@ double Interpolators::eval_with_extrapolation(const std::vector<double> &data,
         return y0 + slope * (x - x_max);
     }
 
-    return f(x);
+    return f(x)*constants::kB_e;
 }
 
 double Interpolators::V_cluster(double N) const {

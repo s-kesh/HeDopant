@@ -18,16 +18,17 @@ public:
     )=0;
     virtual ~RK4Backend() = default;
 
-    static void print_progress_bar(float progress) {
+    static void print_progress_bar(std::size_t current, std::size_t total) {
         int barWidth = 70;
         std::cout << "[";
+        float progress = (1.0 * current) / total;
         int pos = barWidth*progress;
         for (int i = 0; i < barWidth; ++i) {
             if (i < pos) std::cout << "=";
             else if (i == pos) std::cout << ">>";
             else std::cout << " ";
         }
-        std::cout << "] " << int(progress*100.0) << " %\r";
+        std::cout << "] " << current << "/" << total << "\r";
         std::cout.flush();
     }
 };
