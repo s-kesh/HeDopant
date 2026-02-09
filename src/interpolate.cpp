@@ -74,7 +74,7 @@ double Interpolators::eval_with_extrapolation(const std::vector<double> &data,
         return y0 + slope * (x - x_max);
     }
 
-    return f(x)*constants::kB_e;
+    return f(x);
 }
 
 double Interpolators::V_cluster(double N) const {
@@ -82,5 +82,5 @@ double Interpolators::V_cluster(double N) const {
 }
 
 double Interpolators::E_vap(double N) const {
-    return eval_with_extrapolation(N_data, E_interp, N);
+    return eval_with_extrapolation(N_data, E_interp, N)*constants::kB_e;
 }
