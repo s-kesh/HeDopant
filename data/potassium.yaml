@@ -1,7 +1,7 @@
 # Potassium dopant file
 name: "Potassium"
 mass: 39 # amu
-temprature: 300 # K
+temperature: 300 # K
 velocity: 438 # m/s
 E_Int: 77.556E-3 # eV; Internal energy = 3KT
 E_He_X: 0.08617E-3 # eV

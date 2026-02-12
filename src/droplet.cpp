@@ -68,8 +68,8 @@ Droplet::Droplet(
     m_dopX(dopant_name, datadir), m_output(outdir), m_datadir(datadir)
 {
     double cross = 1.0 * constants::pi * constants::he_density * constants::he_density;
-    double con1 = (1.0 / constants::kB / m_dopX.temprature()) * cross;
-    double con2 = m_dopX.e_Int() + (1.5 * constants::kB_e * m_dopX.temprature()) + (m_dopX.e_He_X() + m_dopX.e_X_X());
+    double con1 = (1.0 / constants::kB / m_dopX.temperature()) * cross;
+    double con2 = m_dopX.e_Int() + (1.5 * constants::kB_e * m_dopX.temperature()) + (m_dopX.e_He_X() + m_dopX.e_X_X());
 
     // This print is used to verify that:
     //   1) The correct dopant YAML file is loaded,
