@@ -1,7 +1,7 @@
 # Krypton dopant file
 name: "Krypton"
 mass: 84 # amu
-temprature: 300 # K
+temperature: 300 # K
 velocity: 298 # m/s
 E_Int: 77.556E-3 # eV; Internal energy = 3KT
 E_He_X: 26.90457106E-3 # eV

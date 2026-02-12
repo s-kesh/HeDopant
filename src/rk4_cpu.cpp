@@ -62,7 +62,8 @@ void RK4Backend_CPU::solve_ode(
         #endif
     }
 
-    print_progress_bar(progress);
+    // print_progress_bar(progress);
+    print_progress_bar(0, number_of_steps);
     for (std::size_t i = 0; i < number_of_steps; ++i)
     {
         // k1
@@ -89,8 +90,9 @@ void RK4Backend_CPU::solve_ode(
         // update y
         y.noalias() += step_size * kfinal / 6.0;
 
-        progress = static_cast<float>(i + 1) / number_of_steps;
-        if (100*i % number_of_steps == 0) print_progress_bar(progress);
+        // progress = static_cast<float>(i + 1) / number_of_steps;
+        // if (100*i % number_of_steps == 0) print_progress_bar(progress);
+        print_progress_bar(i + 1, number_of_steps);
 
         if (trajectory) {
             #ifdef HAS_ARROW
@@ -98,7 +100,9 @@ void RK4Backend_CPU::solve_ode(
             #endif
         }
     }
-    print_progress_bar(1.0);
+    // print_progress_bar(1.0);
+
+    print_progress_bar(number_of_steps, number_of_steps);
     std::cout << std::endl;
 
     #ifdef HAS_ARROW

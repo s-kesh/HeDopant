@@ -1,4 +1,5 @@
 #include "interpolate.hpp"
+#include "constants.hpp"
 #include <fstream>
 #include <iostream>
 
@@ -81,5 +82,5 @@ double Interpolators::V_cluster(double N) const {
 }
 
 double Interpolators::E_vap(double N) const {
-    return eval_with_extrapolation(N_data, E_interp, N);
+    return eval_with_extrapolation(N_data, E_interp, N)*constants::kB_e;
 }

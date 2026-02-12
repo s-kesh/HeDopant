@@ -7,6 +7,7 @@
 namespace constants {
     constexpr double pi = 3.14159265358979323846; // Pi
     constexpr double kB = 1.38064852e-23; // Boltzmann constant in J/K
+    constexpr double kB_e = 1.38064852e-4 / 1.602176634; // Boltzmann constant / charge
     constexpr double c = 299792458; // Speed of light in m/s
     constexpr double h = 6.62607015e-34; // Planck constant in J*s
     constexpr double na = 6.02214076e23; // Avogadro constant in mol^-1

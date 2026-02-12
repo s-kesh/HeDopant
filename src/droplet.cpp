@@ -67,8 +67,9 @@ Droplet::Droplet(
     : m_numbers(numbers), m_type(type), m_dist_step(dist_step),
     m_dopX(dopant_name, datadir), m_output(outdir), m_datadir(datadir)
 {
-    double con1 = (1.0 / constants::kB / m_dopX.temprature()) * 4.0 * constants::pi * constants::he_density * constants::he_density;
-    double con2 = m_dopX.e_Int() + (1.5 * constants::kB * m_dopX.temprature()) + (m_dopX.e_He_X() + m_dopX.e_X_X());
+    double cross = 1.0 * constants::pi * constants::he_density * constants::he_density;
+    double con1 = (1.0 / constants::kB / m_dopX.temperature()) * cross;
+    double con2 = m_dopX.e_Int() + (1.5 * constants::kB_e * m_dopX.temperature()) + (m_dopX.e_He_X() + m_dopX.e_X_X());
 
     // This print is used to verify that:
     //   1) The correct dopant YAML file is loaded,
@@ -77,7 +78,7 @@ Droplet::Droplet(
     //   4) con2 actually includes the intended physical contributions.
 
     std::println(
-      "DEBUG energies [J]: E_Int={}  E_HeX={}  E_XX={}  con2={}",
+      "DEBUG energies [eV]: E_Int={}  E_HeX={}  E_XX={}  con2={}",
       m_dopX.e_Int(), m_dopX.e_He_X(), m_dopX.e_X_X(), con2
   );
 
@@ -85,8 +86,8 @@ Droplet::Droplet(
     max_mean_number = *std::max_element(numbers.begin(), numbers.end());
 
     if (m_type == "NONE") {
-        m_vcluster.resize(max_mean_number+5);
-        m_evap.resize(max_mean_number+5);
+        // m_vcluster.resize(max_mean_number+5);
+        // m_evap.resize(max_mean_number+5);
         m_sizes.resize(m_numbers.size());
         m_sizes_dist.resize(1, m_numbers.size());
         for (int n = 0; n < m_sizes.size(); n++) {
@@ -99,8 +100,8 @@ Droplet::Droplet(
         m_alpha.resize(max_k+1, m_numbers.size());
     }
     else {
-        m_vcluster.resize(12*max_mean_number);
-        m_evap.resize(12*max_mean_number);
+        // m_vcluster.resize(12*max_mean_number);
+        // m_evap.resize(12*max_mean_number);
 
         // Creating an array from 0 to 10*max_mean_number with step of DIST_STEP
         int size = 0;
@@ -145,19 +146,19 @@ Droplet::Droplet(
     }
     file.close();
 
-    auto interp = Interpolators(std::format("{}/droplet.txt", m_datadir));
-    for (std::size_t i = 0; i < m_vcluster.size(); i++) {
-        m_vcluster[i] = interp.V_cluster(i+1);
-        m_evap[i] = interp.E_vap(i+1)*constants::kB;
-    }
+    // auto interp = Interpolators(std::format("{}/droplet.txt", m_datadir));
+    // for (std::size_t i = 0; i < m_vcluster.size(); i++) {
+    //     m_vcluster[i] = interp.V_cluster(i+1);
+    //     m_evap[i] = interp.E_vap(i+1)*constants::kB;
+    // }
 
     // Save the calculated vcluster and evap values to a file
-    std::ofstream filev(std::format("{}/vcluster_ebe.txt", m_output));
-    std::println(filev, "droplet_size\tvelocity\tbinding_energy");
-    for (std::size_t i = 0; i < max_mean_number+5; i++) {
-        std::println(filev, "{}\t{}\t{}", i, m_vcluster[i], m_evap[i]);
-    }
-    filev.close();
+    // std::ofstream filev(std::format("{}/vcluster_ebe.txt", m_output));
+    // std::println(filev, "droplet_size\tvelocity\tbinding_energy");
+    // for (std::size_t i = 0; i < max_mean_number+5; i++) {
+    //     std::println(filev, "{}\t{}\t{}", i, m_vcluster[i], m_evap[i]);
+    // }
+    // filev.close();
 
     _calculate_alpha(con1, con2, max_k);
 }
@@ -172,12 +173,14 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
 
     double v_x2 = m_dopX.velocity()*m_dopX.velocity();
     double mass = m_dopX.mass()*constants::amu;
+    auto interp = Interpolators(std::format("{}/droplet.txt", m_datadir));
 
     for (int i = 0; i < m_sizes.size(); i++) {
         std::size_t number = m_sizes[i];
         if (number < 10) continue;
 
-        double v_cluster2 = m_vcluster[number]*m_vcluster[number];
+        // double v_cluster2 = m_vcluster[number]*m_vcluster[number];
+        double v_cluster2 = interp.V_cluster(number+1) * interp.V_cluster(number+1);
         double E_total = 0.0;
         std::size_t N_evap = 0;
 
@@ -185,18 +188,20 @@ void Droplet::_calculate_alpha(const double con1, const double con2, const std::
         std::size_t N_old = number;
 
         m_N_k_vec(0, i) = N_k;
-        m_alpha(0, i) = con1 * std::sqrt((v_cluster2 + v_x2)/ v_cluster2) * std::pow(N_k, 2.0/3.0);
+        m_alpha(0, i) = con1 * std::sqrt(1 + v_x2/v_cluster2) * std::pow(N_k, 2.0/3.0);
 
         for (std::size_t k = 1; k < max_k + 1; k++) {
-            E_total = con2 + (0.5 * mass * v_cluster2);
-            N_evap = (std::size_t)(E_total / m_evap[N_old]);
+            E_total = con2 + (0.5 * mass * v_cluster2)/constants::e; // In eV
+            // N_evap = (std::size_t)(E_total / m_evap[N_old]);
+            N_evap = (std::size_t)(E_total / interp.E_vap(N_old+1));
             if (N_old > N_evap)
                 N_k = (std::size_t)(N_old - N_evap);
             else
                 N_k = 0;
             m_N_k_vec(k, i) = N_k;
-            v_cluster2 = m_vcluster[N_k] * m_vcluster[N_k];
-            m_alpha(k, i) = con1 * std::sqrt((v_cluster2 + v_x2) / v_cluster2) * std::pow(N_k, 2.0/3.0);
+            // v_cluster2 = m_vcluster[N_k] * m_vcluster[N_k];
+            v_cluster2 = interp.V_cluster(N_k+1) * interp.V_cluster(N_k+1);
+            m_alpha(k, i) = con1 * std::sqrt(1 + v_x2 / v_cluster2) * std::pow(N_k, 2.0/3.0);
             N_old = N_k;
         }
     }

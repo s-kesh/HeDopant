@@ -4,7 +4,6 @@
 #include <exception>
 #include <filesystem>
 #include <format>
-#include <numeric>
 #include <print>
 #include <stdexcept>
 #include <string>
@@ -18,6 +17,11 @@
 #include <Eigen/Dense>
 #include <Eigen/Core>
 
+struct DistributionStats {
+    double mean;
+    double mode;
+    double stddev;
+};
 
 /*
  * Print help message
@@ -92,21 +96,40 @@ static void print_config(const YAML::Node& config) {
 }
 
 /*
- * Calculate mean of a distribution
+ * Calculate distribution stats
  */
-template<typename T>
-T calculate_mean(std::vector<T>& distribution) {
-    std::size_t size = distribution.size();
-    T sum_dist = std::reduce(distribution.begin(), distribution.end(), 0.0);
+inline DistributionStats compute_distribution_stats(
+    const Eigen::VectorXd& x,
+    const Eigen::VectorXd& w
+)
+{
+    DistributionStats stats{};
 
-    // k*I_k
-    std::vector<T> k_I_k(size);
-    for (std::size_t i = 0; i < size; i++) {
-        k_I_k[i] = i*distribution[i];
+    const double wsum = w.sum();
+    if (wsum == 0.0) {
+        stats.mean   = 0.0;
+        stats.mode   = 0.0;
+        stats.stddev = 0.0;
+        return stats;
     }
-    T sum_kIk = std::reduce(k_I_k.begin(), k_I_k.end(), 0.0);
-    return sum_kIk/sum_dist;
+
+    // Mean
+    stats.mean = w.dot(x) / wsum;
+
+    // Mode
+    Eigen::Index mode_idx;
+    w.maxCoeff(&mode_idx);
+    stats.mode = x(mode_idx);
+
+    // Standard deviation (population)
+    Eigen::VectorXd diff = x.array() - stats.mean;
+    double variance = w.dot(diff.array().square().matrix()) / wsum;
+    stats.stddev = std::sqrt(variance);
+
+    return stats;
 }
+
+
 
 /*
  * The main function
@@ -317,19 +340,40 @@ int main(int argc, char* argv[]) {
     }
 
     // Lets calculate the mean dopant size for distributions
-    double num = 0;
-    double den = 0;
+    std::string result_filename = std::format("{}/result.txt", output);
+    std::ofstream result(result_filename);
+    std::println(result, "Type\tN0\tMean\tMode\tStdDev");
     Eigen::VectorXd dopant_sizes = Eigen::VectorXd::LinSpaced(I_k_matrix.rows(), 0, I_k_matrix.rows());
     Eigen::VectorXd droplet_sizes = Eigen::VectorXd::LinSpaced(N_k_matrix.rows(), 0, dist_step*N_k_matrix.rows());
     for (std::size_t n = 0; n < he_numbers.size(); n++) {
-        num = I_k_matrix.col(n).dot(dopant_sizes);
-        den = I_k_matrix.col(n).sum();
-        std::println("Mean dopant size for distribution {} is {}", he_numbers[n], num / den);
+        // Dopant distribution
+        auto dopant_stats =
+            compute_distribution_stats(dopant_sizes, I_k_matrix.col(n));
 
+
+        std::println(
+            result,
+            "Dopant\t{}\t{}\t{}\t{}",
+            he_numbers[n],
+            dopant_stats.mean,
+            dopant_stats.mode,
+            dopant_stats.stddev
+        );
+
+        // Droplet distribution
         N_k_matrix.row(0).setZero();
-        num = N_k_matrix.col(n).dot(droplet_sizes);
-        den = N_k_matrix.col(n).sum();
-        std::println("Mean droplet size after doping for distribution {} is {}", he_numbers[n], num / den);
+
+        auto droplet_stats =
+            compute_distribution_stats(droplet_sizes, N_k_matrix.col(n));
+
+        std::println(
+            result,
+            "Droplet\t{}\t{}\t{}\t{}",
+            he_numbers[n],
+            droplet_stats.mean,
+            droplet_stats.mode,
+            droplet_stats.stddev
+        );
     }
 
     return 0;
