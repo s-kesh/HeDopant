@@ -319,18 +319,41 @@ int main(int argc, char* argv[]) {
     // Lets calculate the mean dopant size for distributions
     double num = 0;
     double den = 0;
-    Eigen::VectorXd dopant_sizes = Eigen::VectorXd::LinSpaced(I_k_matrix.rows(), 0, I_k_matrix.rows());
-    Eigen::VectorXd droplet_sizes = Eigen::VectorXd::LinSpaced(N_k_matrix.rows(), 0, dist_step*N_k_matrix.rows());
-    for (std::size_t n = 0; n < he_numbers.size(); n++) {
-        num = I_k_matrix.col(n).dot(dopant_sizes);
-        den = I_k_matrix.col(n).sum();
-        std::println("Mean dopant size for distribution {} is {}", he_numbers[n], num / den);
 
-        N_k_matrix.row(0).setZero();
-        num = N_k_matrix.col(n).dot(droplet_sizes);
-        den = N_k_matrix.col(n).sum();
-        std::println("Mean droplet size after doping for distribution {} is {}", he_numbers[n], num / den);
-    }
 
-    return 0;
+const std::ptrdiff_t Rk = I_k_matrix.rows();
+const std::ptrdiff_t RN = N_k_matrix.rows();
+
+Eigen::VectorXd dopant_sizes(Rk);
+if (Rk > 1) {
+    dopant_sizes = Eigen::VectorXd::LinSpaced(Rk, 0.0, double(Rk - 1));
+} else {
+    dopant_sizes.setZero();
 }
+
+Eigen::VectorXd droplet_sizes(RN);
+if (RN > 1) {
+    droplet_sizes = Eigen::VectorXd::LinSpaced(RN, 0.0, dist_step * double(RN - 1));
+} else {
+    droplet_sizes.setZero();
+}
+
+
+
+
+for (std::size_t n = 0; n < he_numbers.size(); n++) {
+    num = I_k_matrix.col(n).dot(dopant_sizes);
+    den = I_k_matrix.col(n).sum();
+    std::println("Mean dopant size for distribution {} is {}", he_numbers[n], num / den);
+
+    N_k_matrix.row(0).setZero();
+    num = N_k_matrix.col(n).dot(droplet_sizes);
+    den = N_k_matrix.col(n).sum();
+    std::println("Mean droplet size after doping for distribution {} is {}", he_numbers[n], num / den);
+}
+
+return 0;
+
+  
+}
+
