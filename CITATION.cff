@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Sishodia
+    given-names: Keshav
+    orcid: https://orcid.org/0009-0005-7994-3005
+ - family-names: De
+  given-names: Subhendu
+  orcid: https://orcid.org/0009-0002-5658-0844
+title: "HeDopant: Program to simulation doping process in helium nanodroplets."
+version: 1.0.0
+date-released: 2026-02-12
